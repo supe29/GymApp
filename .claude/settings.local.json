@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes create-expo-app@latest --help)",
+      "Bash(npx --yes create-expo@latest apps/app -t blank-typescript --no-install --no-agents-md)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(npx prettier *)"
+    ]
+  }
+}

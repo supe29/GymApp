@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+apps/*/expo-env.d.ts
+.metro-health-check*
+
+# native build output (generated, not checked in for a managed Expo app)
+ios/
+android/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Supabase local dev
+supabase/.branches
+supabase/.temp
+
+# env
+.env
+.env.*.local
+
+# logs / OS
+npm-debug.log*
+.DS_Store
