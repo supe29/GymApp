@@ -1,17 +1,21 @@
 import {
+  completeWorkoutSession,
+  createProgressionSuggestion,
   getExercisesWithTags,
   getPlannedSessionById,
+  getSetLogsForSession,
   getUserEquipmentIds,
   listEquipmentItems,
   startWorkoutSession,
-  completeWorkoutSession,
+  updateProgressionSuggestionStatus,
   type GymSupabaseClient,
 } from 'api-client';
-import { filterByEquipmentSubset, filterByMuscleGroup, type ExerciseWithTags } from 'core';
+import { evaluateExercisePerformance, filterByEquipmentSubset, filterByMuscleGroup, type ExerciseWithTags, type ProgressionAction } from 'core';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getSupabaseClient } from '../../lib/supabaseClient';
+import ProgressionSuggestionCard from '../plan/ProgressionSuggestionCard';
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
 import RestTimer from './RestTimer';
 import SetLogger, { type LoggedSetDisplay } from './SetLogger';
@@ -31,10 +35,22 @@ interface SessionSlot {
   targetSets: number;
   targetRepsMin: number;
   targetRepsMax: number | null;
+  targetWeightKg: number | null;
   skipped: boolean;
   nextSetIndex: number;
   loggedSets: LoggedSetDisplay[];
   showSubstituteOptions: boolean;
+}
+
+interface SuggestionCardState {
+  suggestionId: string;
+  exerciseId: string;
+  exerciseName: string;
+  action: ProgressionAction;
+  suggestedWeightKg: number | null;
+  suggestedReps: number | null;
+  rationale: string;
+  status: 'pending' | 'accepted' | 'declined' | 'overridden';
 }
 
 /**
@@ -43,6 +59,16 @@ interface SessionSlot {
  * mid-session (FR-5.3). Each logged set goes through the offline queue
  * (offlineQueue.ts) rather than directly to the backend, so a brief
  * connectivity drop never discards an already-entered set (NFR-3).
+ *
+ * FR-6.1/FR-6.2/FR-6.3 (Phase 8): on completion, re-fetches the session's
+ * confirmed logs (via getSetLogsForSession, per logAggregation.ts's "read
+ * exclusively through this module" mandate — not the in-memory,
+ * possibly-still-syncing loggedSets) and evaluates each prescribed,
+ * non-skipped, non-added exercise. Added/skipped slots and freeform
+ * sessions have no planned_session_exercises row to feed a "next
+ * occurrence" suggestion into, so they're never evaluated. Resulting
+ * suggestions are shown for accept/decline/override before
+ * onSessionCompleted fires.
  *
  * OQ-5 (missed/skipped session rescheduling) is out of scope here, same
  * citation style as profileValidation.ts's OQ-6 note: this screen has no
@@ -62,6 +88,7 @@ export default function SessionScreen({
   const [availableEquipmentKeys, setAvailableEquipmentKeys] = useState<string[]>([]);
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [suggestionCards, setSuggestionCards] = useState<SuggestionCardState[]>([]);
   const queueRef = useRef<OfflineQueueHandle | null>(null);
 
   function updateLoggedSet(id: string, patch: Partial<LoggedSetDisplay>) {
@@ -109,6 +136,7 @@ export default function SessionScreen({
             targetSets: ex.targetSets,
             targetRepsMin: ex.targetRepsMin,
             targetRepsMax: ex.targetRepsMax,
+            targetWeightKg: ex.targetWeightKg,
             skipped: false,
             nextSetIndex: 1,
             loggedSets: [],
@@ -213,6 +241,7 @@ export default function SessionScreen({
         targetSets: 3,
         targetRepsMin: 8,
         targetRepsMax: 12,
+        targetWeightKg: null,
         skipped: false,
         nextSetIndex: 1,
         loggedSets: [],
@@ -226,11 +255,94 @@ export default function SessionScreen({
     if (!workoutSessionId) return;
     setCompleting(true);
     const result = await completeWorkoutSession(client, userId, workoutSessionId);
-    setCompleting(false);
     if (result.error) {
+      setCompleting(false);
       setError(result.error);
       return;
     }
+
+    // FR-6.1: evaluate each prescribed, non-skipped, non-added exercise
+    // against its confirmed (synced) logs, and persist a suggestion for
+    // the ones with something to evaluate.
+    const logsRes = await getSetLogsForSession(client, userId, workoutSessionId);
+    const confirmedLogs = logsRes.data ?? [];
+    const evaluableSlots = slots.filter((slot) => !slot.skipped && !slot.id.startsWith('added-'));
+
+    const cards: SuggestionCardState[] = [];
+    for (const slot of evaluableSlots) {
+      const evaluation = evaluateExercisePerformance(
+        {
+          exerciseId: slot.exerciseId,
+          targetSets: slot.targetSets,
+          targetRepsMin: slot.targetRepsMin,
+          targetRepsMax: slot.targetRepsMax,
+          targetWeightKg: slot.targetWeightKg,
+        },
+        confirmedLogs.filter((log) => log.exerciseId === slot.exerciseId),
+      );
+      if (!evaluation) continue;
+
+      const createRes = await createProgressionSuggestion(client, userId, {
+        exerciseId: slot.exerciseId,
+        sourceWorkoutSessionId: workoutSessionId,
+        action: evaluation.action,
+        suggestedWeightKg: evaluation.suggestedWeightKg,
+        suggestedReps: evaluation.suggestedReps,
+        rationale: evaluation.rationale,
+      });
+      if (createRes.data) {
+        cards.push({
+          suggestionId: createRes.data.id,
+          exerciseId: slot.exerciseId,
+          exerciseName: slot.exerciseName,
+          action: createRes.data.action,
+          suggestedWeightKg: createRes.data.suggestedWeightKg,
+          suggestedReps: createRes.data.suggestedReps,
+          rationale: createRes.data.rationale,
+          status: 'pending',
+        });
+      }
+    }
+
+    setCompleting(false);
+    if (cards.length === 0) {
+      onSessionCompleted?.();
+      return;
+    }
+    setSuggestionCards(cards);
+  }
+
+  async function handleAcceptSuggestion(suggestionId: string) {
+    await updateProgressionSuggestionStatus(client, userId, suggestionId, { status: 'accepted' });
+    setSuggestionCards((prev) =>
+      prev.map((c) => (c.suggestionId === suggestionId ? { ...c, status: 'accepted' } : c)),
+    );
+  }
+
+  async function handleDeclineSuggestion(suggestionId: string) {
+    await updateProgressionSuggestionStatus(client, userId, suggestionId, { status: 'declined' });
+    setSuggestionCards((prev) =>
+      prev.map((c) => (c.suggestionId === suggestionId ? { ...c, status: 'declined' } : c)),
+    );
+  }
+
+  async function handleOverrideSuggestion(
+    suggestionId: string,
+    overriddenWeightKg: number | null,
+    overriddenReps: number | null,
+  ) {
+    await updateProgressionSuggestionStatus(client, userId, suggestionId, {
+      status: 'overridden',
+      overriddenWeightKg,
+      overriddenReps,
+    });
+    setSuggestionCards((prev) =>
+      prev.map((c) => (c.suggestionId === suggestionId ? { ...c, status: 'overridden' } : c)),
+    );
+  }
+
+  function handleDoneReviewingSuggestions() {
+    setSuggestionCards([]);
     onSessionCompleted?.();
   }
 
@@ -239,6 +351,32 @@ export default function SessionScreen({
       <View style={styles.container}>
         <Text testID="session-screen-loading">Loading...</Text>
       </View>
+    );
+  }
+
+  if (suggestionCards.length > 0) {
+    return (
+      <ScrollView style={styles.container} testID="session-suggestions-review">
+        <Text style={styles.title}>Session complete — what&apos;s next</Text>
+        {suggestionCards.map((card) => (
+          <ProgressionSuggestionCard
+            key={card.suggestionId}
+            exerciseId={card.exerciseId}
+            exerciseName={card.exerciseName}
+            action={card.action}
+            suggestedWeightKg={card.suggestedWeightKg}
+            suggestedReps={card.suggestedReps}
+            rationale={card.rationale}
+            status={card.status}
+            onAccept={() => handleAcceptSuggestion(card.suggestionId)}
+            onDecline={() => handleDeclineSuggestion(card.suggestionId)}
+            onOverride={(weightKg, reps) => handleOverrideSuggestion(card.suggestionId, weightKg, reps)}
+          />
+        ))}
+        <Pressable testID="session-suggestions-done" style={styles.button} onPress={handleDoneReviewingSuggestions}>
+          <Text style={styles.buttonText}>Done</Text>
+        </Pressable>
+      </ScrollView>
     );
   }
 
@@ -333,6 +471,7 @@ export default function SessionScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24 },
+  title: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
   error: { color: '#b00020', marginBottom: 12 },
   slotContainer: { marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 12 },
   skippedRow: { paddingVertical: 10 },

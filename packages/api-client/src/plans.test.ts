@@ -206,7 +206,9 @@ describe('getCurrentPlan (FR-2.4)', () => {
           error: null,
         }),
       )
-      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }], error: null }));
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }], error: null }))
+      // Phase 8: progression_suggestions overlay lookup — no suggestions yet.
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }));
 
     const result = await getCurrentPlan(client, 'user-1');
 
@@ -371,7 +373,9 @@ describe('getPlannedSessionById (FR-5.2, Phase 7)', () => {
           error: null,
         }),
       )
-      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }], error: null }));
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }], error: null }))
+      // Phase 8: progression_suggestions overlay lookup — no suggestions yet.
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }));
 
     const result = await getPlannedSessionById(client, 'user-1', 'session-1');
 
@@ -386,5 +390,55 @@ describe('getPlannedSessionById (FR-5.2, Phase 7)', () => {
     const result = await getPlannedSessionById(client, 'user-1', 'session-1');
 
     expect(result).toEqual({ data: null, error: null });
+  });
+
+  test('FR-6.1: reflects an accepted progression suggestion on the matching exercise, leaving others untouched', async () => {
+    const { client, from } = createMockClient();
+    from
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: { id: 'session-1', workout_plan_id: 'plan-1', user_id: 'user-1', day_order: 1, name: 'Full Body', created_at: '' },
+          error: null,
+        }),
+      )
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [
+            { id: 'pse-1', planned_session_id: 'session-1', user_id: 'user-1', exercise_id: 'ex-1', order_index: 0, target_sets: 3, target_reps_min: 8, target_reps_max: 12, target_weight_kg: 50, intensity_note: null, created_at: '' },
+            { id: 'pse-2', planned_session_id: 'session-1', user_id: 'user-1', exercise_id: 'ex-2', order_index: 1, target_sets: 3, target_reps_min: 8, target_reps_max: 12, target_weight_kg: 30, intensity_note: null, created_at: '' },
+          ],
+          error: null,
+        }),
+      )
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }, { id: 'ex-2', name: 'Bench Press' }], error: null }))
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [
+            {
+              id: 'sugg-1',
+              user_id: 'user-1',
+              exercise_id: 'ex-1',
+              source_workout_session_id: 'session-old',
+              action: 'increase_weight',
+              suggested_weight_kg: 52.5,
+              suggested_reps: 8,
+              rationale: 'You hit 12+ reps on every set.',
+              status: 'accepted',
+              overridden_weight_kg: null,
+              overridden_reps: null,
+              created_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          error: null,
+        }),
+      );
+
+    const result = await getPlannedSessionById(client, 'user-1', 'session-1');
+
+    const squat = result.data?.exercises.find((e) => e.exerciseId === 'ex-1');
+    const bench = result.data?.exercises.find((e) => e.exerciseId === 'ex-2');
+    expect(squat?.targetWeightKg).toBe(52.5);
+    expect(squat?.targetRepsMin).toBe(8);
+    expect(bench?.targetWeightKg).toBe(30);
   });
 });

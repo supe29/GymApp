@@ -543,7 +543,7 @@ Carried from `spec.md`, mapped to where they must be resolved before that phase 
 |---|---|
 | ~~OQ-1: Exact safe-minimum calorie floor values~~ — **Resolved in Phase 6**, see `/docs/decisions/OQ-1-safe-calorie-floor.md` | Phase 6 |
 | OQ-2: Exact muscle-group taxonomy | Phase 3 |
-| OQ-3: Exact progressive-overload increment rule | Phase 8 |
+| ~~OQ-3: Exact progressive-overload increment rule~~ — **Resolved in Phase 8**, see `/docs/decisions/OQ-3-progression-increment-rule.md` | Phase 8 |
 | OQ-4: PR calculation method | Phase 10 |
 | OQ-5: Rescheduling behavior for missed/skipped sessions | Phase 5 (or explicitly deferred past V1) |
 | ~~OQ-6: Biological sex field options and formula branching~~ — **Resolved in Phase 2**, see `/docs/decisions/OQ-6-biological-sex.md` | Phase 2 |

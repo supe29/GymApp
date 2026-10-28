@@ -1,4 +1,5 @@
 import {
+  applyProgressionOverlay,
   diffPlans,
   generatePlan,
   toComparablePlan,
@@ -11,6 +12,7 @@ import {
 import type { GymSupabaseClient } from './client';
 import { getExercisesWithTags } from './exercises';
 import { getProfile, getUserEquipmentIds, listEquipmentItems, type ApiResult } from './profile';
+import { getLatestEffectiveSuggestionsForExercises } from './progressionSuggestions';
 import type { Database } from './types/database';
 
 export type WorkoutPlanRow = Database['public']['Tables']['workout_plans']['Row'];
@@ -42,6 +44,32 @@ export interface PersistedPlan {
   planVersion: number;
   effectiveFrom: string;
   sessions: PersistedSession[];
+}
+
+/**
+ * FR-6.1/FR-6.2: layers the latest accepted/overridden progression
+ * suggestion for each exercise onto its static prescribed target.
+ * planned_session_exercises is immutable (no UPDATE grant exists for
+ * authenticated users), so this is the one place "next occurrence
+ * reflects the suggestion" is implemented — getCurrentPlan and
+ * getPlannedSessionById both call this before returning; no other
+ * screen needs to know the overlay exists. See
+ * /docs/decisions/OQ-3-progression-increment-rule.md.
+ */
+async function overlaySuggestions(
+  client: GymSupabaseClient,
+  userId: string,
+  exercises: PersistedPrescribedExercise[],
+): Promise<ApiResult<PersistedPrescribedExercise[]>> {
+  const exerciseIds = [...new Set(exercises.map((e) => e.exerciseId))];
+  const suggestionsRes = await getLatestEffectiveSuggestionsForExercises(client, userId, exerciseIds);
+  if (suggestionsRes.error || !suggestionsRes.data) {
+    return result<PersistedPrescribedExercise[]>(
+      null,
+      { message: suggestionsRes.error ?? 'Failed to fetch progression suggestions.' },
+    );
+  }
+  return { data: applyProgressionOverlay(exercises, suggestionsRes.data), error: null };
 }
 
 export interface RegenerationPreview {
@@ -174,7 +202,21 @@ export async function getCurrentPlan(
     exerciseNameById = namesRes.data;
   }
 
-  return { data: toPersistedPlan(planRow, sessions, exerciseRows, exerciseNameById), error: null };
+  const plan = toPersistedPlan(planRow, sessions, exerciseRows, exerciseNameById);
+  const allExercises = plan.sessions.flatMap((s) => s.exercises);
+  if (allExercises.length === 0) {
+    return { data: plan, error: null };
+  }
+  const overlaidRes = await overlaySuggestions(client, userId, allExercises);
+  if (overlaidRes.error || !overlaidRes.data) {
+    return result<PersistedPlan>(null, { message: overlaidRes.error ?? 'Failed to overlay progression suggestions.' });
+  }
+  const overlaidByExercisePseId = new Map(overlaidRes.data.map((ex) => [ex.id, ex]));
+  const overlaidSessions = plan.sessions.map((s) => ({
+    ...s,
+    exercises: s.exercises.map((ex) => overlaidByExercisePseId.get(ex.id) ?? ex),
+  }));
+  return { data: { ...plan, sessions: overlaidSessions }, error: null };
 }
 
 export interface PlannedSessionDetail {
@@ -231,13 +273,25 @@ export async function getPlannedSessionById(
     .map((row) => toPersistedPrescribedExercise(row, namesRes.data as Map<string, string>))
     .sort((a, b) => a.orderIndex - b.orderIndex);
 
+  if (exercises.length === 0) {
+    return {
+      data: { id: sessionRow.id, workoutPlanId: sessionRow.workout_plan_id, dayOrder: sessionRow.day_order, name: sessionRow.name, exercises },
+      error: null,
+    };
+  }
+
+  const overlaidRes = await overlaySuggestions(client, userId, exercises);
+  if (overlaidRes.error || !overlaidRes.data) {
+    return result<PlannedSessionDetail>(null, { message: overlaidRes.error ?? 'Failed to overlay progression suggestions.' });
+  }
+
   return {
     data: {
       id: sessionRow.id,
       workoutPlanId: sessionRow.workout_plan_id,
       dayOrder: sessionRow.day_order,
       name: sessionRow.name,
-      exercises,
+      exercises: overlaidRes.data,
     },
     error: null,
   };

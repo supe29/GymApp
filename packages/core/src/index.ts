@@ -18,3 +18,6 @@ export * from './nutrition/macroCalculator';
 export * from './nutrition/nutritionGenerator';
 export * from './nutrition/versioning';
 export * from './logs/logAggregation';
+export * from './progression/rules/incrementRules';
+export * from './progression/evaluateSession';
+export * from './progression/applyProgressionOverlay';
