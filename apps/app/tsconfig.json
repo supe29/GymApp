@@ -3,7 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "composite": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "types": ["jest"]
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "dist", ".expo"]

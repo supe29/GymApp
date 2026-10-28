@@ -3,7 +3,9 @@
   "compilerOptions": {
     "composite": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "types": ["node", "jest"],
+    "lib": ["ES2020", "DOM"]
   },
   "include": ["src"]
 }

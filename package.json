@@ -9,10 +9,15 @@
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --build --pretty",
     "test": "jest --passWithNoTests",
+    "test:db": "node --test supabase/tests/adversarial.test.mjs supabase/tests/content.test.mjs",
+    "content:import-exercises": "tsx data/exercises/scripts/importAndTag.ts",
     "format": "prettier --check .",
     "format:write": "prettier --write ."
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^8.57.0",
@@ -21,6 +26,9 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "jest": "^29.7.0",
     "prettier": "^3.3.0",
+    "ts-jest": "^29.4.14",
+    "tsx": "^4.23.15",
+    "uuid": "^14.0.2",
     "typescript": "^5.5.0 || ^6.0.0"
   }
 }

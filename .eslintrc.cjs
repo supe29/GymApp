@@ -27,4 +27,16 @@ module.exports = {
     'react/react-in-jsx-scope': 'off',
     'react/prop-types': 'off',
   },
+  overrides: [
+    {
+      // @react-three/fiber's JSX intrinsics (mesh, boxGeometry,
+      // ambientLight, ...) are Three.js object props, not DOM/React
+      // Native ones; eslint-plugin-react's no-unknown-property rule
+      // doesn't know about them and flags every one as a false positive.
+      files: ['packages/three-model/src/**/*.tsx'],
+      rules: {
+        'react/no-unknown-property': 'off',
+      },
+    },
+  ],
 };

@@ -1,0 +1,41 @@
+{
+  "_comment": "Resolves spec.md OQ-2 / A-4: the fixed, app-defined muscle-group taxonomy (~15-20 regions). Derived directly from the 17 distinct primaryMuscles/secondaryMuscles values found in /data/exercises/source/exercises.json (computed by direct inspection, not assumed). `key` is the normalized, stable identifier this app uses everywhere (DB rows, and later the Phase 4 3D-model interaction contract's region IDs per plan.md).",
+  "groups": [
+    { "key": "abdominals", "displayName": "Abdominals" },
+    { "key": "abductors", "displayName": "Abductors" },
+    { "key": "adductors", "displayName": "Adductors" },
+    { "key": "biceps", "displayName": "Biceps" },
+    { "key": "calves", "displayName": "Calves" },
+    { "key": "chest", "displayName": "Chest" },
+    { "key": "forearms", "displayName": "Forearms" },
+    { "key": "glutes", "displayName": "Glutes" },
+    { "key": "hamstrings", "displayName": "Hamstrings" },
+    { "key": "lats", "displayName": "Lats" },
+    { "key": "lower_back", "displayName": "Lower Back" },
+    { "key": "middle_back", "displayName": "Middle Back" },
+    { "key": "neck", "displayName": "Neck" },
+    { "key": "quadriceps", "displayName": "Quadriceps" },
+    { "key": "shoulders", "displayName": "Shoulders" },
+    { "key": "traps", "displayName": "Traps" },
+    { "key": "triceps", "displayName": "Triceps" }
+  ],
+  "sourceValueToKey": {
+    "abdominals": "abdominals",
+    "abductors": "abductors",
+    "adductors": "adductors",
+    "biceps": "biceps",
+    "calves": "calves",
+    "chest": "chest",
+    "forearms": "forearms",
+    "glutes": "glutes",
+    "hamstrings": "hamstrings",
+    "lats": "lats",
+    "lower back": "lower_back",
+    "middle back": "middle_back",
+    "neck": "neck",
+    "quadriceps": "quadriceps",
+    "shoulders": "shoulders",
+    "traps": "traps",
+    "triceps": "triceps"
+  }
+}

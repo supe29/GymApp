@@ -510,7 +510,7 @@ Run a full end-to-end regression pass across web, iOS, and Android covering ever
 Full end-to-end suite across all seven user flows on all three platforms. Manual accessibility/screen-reader pass. Load/performance spot checks on reference devices.
 
 ### Acceptance criteria
-All acceptance criteria (AC-1 through AC-14) pass on web, iOS, and Android. No open question remains unresolved without an explicit, recorded deferral decision. The app is ready to submit/deploy.
+All acceptance criteria (AC-1 through AC-14) pass on web, iOS, and Android. No open question remains unresolved without an explicit, recorded deferral decision. The app is ready to submit/deploy. Every item in `/docs/deferred-production-checks.md` (real OAuth/device/Supabase integration checks accumulated from Phases 2 onward, deliberately deferred past each development phase but mandatory before production) is checked off, not silently left unverified.
 
 ### Dependencies
 Phase 11 and Phase 12 complete.
@@ -546,7 +546,7 @@ Carried from `spec.md`, mapped to where they must be resolved before that phase 
 | OQ-3: Exact progressive-overload increment rule | Phase 8 |
 | OQ-4: PR calculation method | Phase 10 |
 | OQ-5: Rescheduling behavior for missed/skipped sessions | Phase 5 (or explicitly deferred past V1) |
-| OQ-6: Biological sex field options and formula branching | Phase 2 |
+| ~~OQ-6: Biological sex field options and formula branching~~ — **Resolved in Phase 2**, see `/docs/decisions/OQ-6-biological-sex.md` | Phase 2 |
 | OQ-7: Whether custom foods ever get promoted to a shared database | Not required for V1; deferred |
 | OQ-8: Exact SR-2 unsafe-configuration thresholds and block-vs-warn behavior | Phase 6 |
 | OQ-9: Data export capability (beyond deletion) | Not currently scoped in any phase — flagged for product decision before Phase 12 sign-off |

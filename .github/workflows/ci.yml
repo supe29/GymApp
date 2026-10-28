@@ -27,3 +27,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: DB schema / RLS / DR-5 adversarial tests
+        run: npm run test:db

@@ -3,15 +3,30 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
-    "expo": "~57.0.25",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-three/fiber": "^9.8.1",
+    "api-client": "*",
+    "core": "*",
+    "expo": "~57.0.26",
+    "expo-asset": "~57.0.18",
+    "expo-file-system": "~57.0.7",
+    "expo-gl": "~57.0.2",
+    "expo-linking": "~57.0.9",
     "expo-status-bar": "~57.0.1",
+    "expo-web-browser": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-web": "~0.20.0"
+    "react-native-web": "^0.21.2",
+    "three": "^0.186.1",
+    "three-model": "*"
   },
   "devDependencies": {
+    "@testing-library/react-native": "^13.3.3",
     "@types/react": "~19.2.2",
+    "@types/three": "^0.186.0",
+    "jest-expo": "^57.0.5",
+    "react-test-renderer": "19.3.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -19,7 +34,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --build --pretty"
+    "typecheck": "tsc --build --pretty",
+    "test": "jest"
   },
   "private": true
 }

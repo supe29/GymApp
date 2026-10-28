@@ -1,3 +1,5 @@
-// Shared 3D muscle model component (web + native implementations behind
-// one interaction contract) lives here starting in Phase 4.
-export {};
+export * from './interactionContract';
+export * from './muscleRegions';
+export * from './gestureMath';
+export * from './BodyModelTypes';
+export { default as BodyModel } from './BodyModel';

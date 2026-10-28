@@ -1,10 +1,22 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/core" },
-    { "path": "packages/api-client" },
-    { "path": "packages/ui" },
-    { "path": "packages/three-model" },
-    { "path": "apps/app" }
-  ]
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/api-client"
+    },
+    {
+      "path": "packages/ui"
+    },
+    {
+      "path": "packages/three-model"
+    },
+    {
+      "path": "apps/app"
+    }
+  ],
+  "compilerOptions": {},
+  "extends": "expo/tsconfig.base"
 }

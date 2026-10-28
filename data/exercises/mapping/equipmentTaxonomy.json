@@ -1,0 +1,35 @@
+{
+  "_comment": "Equipment taxonomy: individual equipment items (FR-1.2) grouped into the 3 categories fixed by /supabase/migrations/0002_equipment_and_muscle_taxonomy.sql's CHECK constraint (free_weights | machines | bodyweight_other). Derived from the 12 distinct `equipment` values (including null) found in /data/exercises/source/exercises.json. A source value of null means the exercise requires no equipment at all and gets no exercise_equipment row (available regardless of declared equipment).",
+  "items": [
+    { "key": "barbell", "displayName": "Barbell", "category": "free_weights" },
+    { "key": "dumbbell", "displayName": "Dumbbell", "category": "free_weights" },
+    { "key": "kettlebell", "displayName": "Kettlebell", "category": "free_weights" },
+    { "key": "medicine_ball", "displayName": "Medicine Ball", "category": "free_weights" },
+    { "key": "ez_curl_bar", "displayName": "EZ Curl Bar", "category": "free_weights" },
+    { "key": "machine", "displayName": "Machine (general)", "category": "machines" },
+    { "key": "cable_machine", "displayName": "Cable Machine", "category": "machines" },
+    { "key": "bodyweight", "displayName": "Bodyweight", "category": "bodyweight_other" },
+    {
+      "key": "resistance_bands",
+      "displayName": "Resistance Bands",
+      "category": "bodyweight_other"
+    },
+    { "key": "exercise_ball", "displayName": "Exercise Ball", "category": "bodyweight_other" },
+    { "key": "foam_roller", "displayName": "Foam Roller", "category": "bodyweight_other" },
+    { "key": "other_equipment", "displayName": "Other", "category": "bodyweight_other" }
+  ],
+  "sourceValueToKey": {
+    "barbell": "barbell",
+    "dumbbell": "dumbbell",
+    "kettlebells": "kettlebell",
+    "medicine ball": "medicine_ball",
+    "e-z curl bar": "ez_curl_bar",
+    "machine": "machine",
+    "cable": "cable_machine",
+    "body only": "bodyweight",
+    "bands": "resistance_bands",
+    "exercise ball": "exercise_ball",
+    "foam roll": "foam_roller",
+    "other": "other_equipment"
+  }
+}

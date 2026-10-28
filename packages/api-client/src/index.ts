@@ -1,3 +1,6 @@
-// Supabase client + typed data access lives here in later phases
-// (Phase 1 provisions the schema this package will bind to).
-export {};
+export * from './client';
+export * from './types/database';
+export * from './auth';
+export * from './profile';
+export * from './exercises';
+export * from './plans';
