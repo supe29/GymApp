@@ -1,5 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
-import type { PlanDiffSummary } from 'core';
+import type { NutritionTargetDiffSummary, PlanDiffSummary } from 'core';
 
 import RegeneratePlanPrompt from './RegeneratePlanPrompt';
 
@@ -16,6 +16,16 @@ function diff(overrides: Partial<PlanDiffSummary> = {}): PlanDiffSummary {
       exercisesRemoved: 0,
       prescriptionsChanged: 0,
     },
+    ...overrides,
+  };
+}
+
+function nutritionDiff(overrides: Partial<NutritionTargetDiffSummary> = {}): NutritionTargetDiffSummary {
+  return {
+    changed: false,
+    previous: { dailyCalories: 2000, proteinG: 150, carbsG: 200, fatG: 55 },
+    next: { dailyCalories: 2000, proteinG: 150, carbsG: 200, fatG: 55 },
+    deltas: { dailyCalories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
     ...overrides,
   };
 }
@@ -92,5 +102,67 @@ describe('RegeneratePlanPrompt (FR-2.4)', () => {
       <RegeneratePlanPrompt diffSummary={diff()} onAccept={jest.fn()} onDecline={jest.fn()} accepting />,
     );
     expect(getByText('Regenerating…')).toBeTruthy();
+  });
+
+  test('nutrition-only mode: shows the nutrition diff and no plan diff section', () => {
+    const { getByTestId, queryByTestId } = render(
+      <RegeneratePlanPrompt
+        nutritionDiffSummary={nutritionDiff({
+          changed: true,
+          next: { dailyCalories: 1800, proteinG: 150, carbsG: 170, fatG: 50 },
+          deltas: { dailyCalories: -200, proteinG: 0, carbsG: -30, fatG: -5 },
+        })}
+        onAccept={jest.fn()}
+        onDecline={jest.fn()}
+      />,
+    );
+    expect(getByTestId('regenerate-nutrition-diff')).toBeTruthy();
+    expect(getByTestId('regenerate-nutrition-diff-calories').props.children.join('')).toContain('1800');
+    expect(queryByTestId('regenerate-plan-diff-split')).toBeNull();
+  });
+
+  test('nutrition-only mode: empty-diff message shown when nothing changed', () => {
+    const { getByTestId, queryByTestId } = render(
+      <RegeneratePlanPrompt nutritionDiffSummary={nutritionDiff()} onAccept={jest.fn()} onDecline={jest.fn()} />,
+    );
+    expect(getByTestId('regenerate-plan-diff-empty')).toBeTruthy();
+    expect(queryByTestId('regenerate-nutrition-diff')).toBeNull();
+  });
+
+  test('nutrition-only mode: first-ever targets (no previous) render without crashing', () => {
+    const { getByTestId } = render(
+      <RegeneratePlanPrompt
+        nutritionDiffSummary={nutritionDiff({
+          changed: true,
+          previous: null,
+          next: { dailyCalories: 2200, proteinG: 160, carbsG: 220, fatG: 60 },
+          deltas: { dailyCalories: 2200, proteinG: 160, carbsG: 220, fatG: 60 },
+        })}
+        onAccept={jest.fn()}
+        onDecline={jest.fn()}
+      />,
+    );
+    expect(getByTestId('regenerate-nutrition-diff-calories').props.children.join('')).toContain('2200');
+  });
+
+  test('combined mode: shows both plan and nutrition diff sections and a single accept/decline', () => {
+    const onAccept = jest.fn();
+    const { getByTestId } = render(
+      <RegeneratePlanPrompt
+        diffSummary={diff({ splitTypeChanged: true, previousSplitType: 'full_body', nextSplitType: 'upper_lower' })}
+        nutritionDiffSummary={nutritionDiff({
+          changed: true,
+          next: { dailyCalories: 1800, proteinG: 150, carbsG: 170, fatG: 50 },
+          deltas: { dailyCalories: -200, proteinG: 0, carbsG: -30, fatG: -5 },
+        })}
+        onAccept={onAccept}
+        onDecline={jest.fn()}
+      />,
+    );
+    expect(getByTestId('regenerate-plan-diff-split')).toBeTruthy();
+    expect(getByTestId('regenerate-nutrition-diff')).toBeTruthy();
+
+    fireEvent.press(getByTestId('regenerate-accept'));
+    expect(onAccept).toHaveBeenCalledTimes(1);
   });
 });

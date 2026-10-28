@@ -1,5 +1,7 @@
 import {
+  buildNutritionRegenerationPreview,
   buildRegenerationPreview,
+  createNutritionTargets,
   createWorkoutPlan,
   getProfile,
   getUserEquipmentIds,
@@ -8,12 +10,14 @@ import {
   updateProfile,
   type EquipmentItemRow,
   type GymSupabaseClient,
+  type NutritionRegenerationPreview,
   type RegenerationPreview,
   listEquipmentItems,
 } from 'api-client';
 import {
   BIOLOGICAL_SEX_OPTIONS,
   type BiologicalSex,
+  didNutritionAffectingFieldChange,
   didPlanAffectingFieldChange,
   FITNESS_LEVEL_OPTIONS,
   type FitnessLevel,
@@ -91,6 +95,8 @@ export default function EditProfileScreen({
   const [equipmentItems, setEquipmentItems] = useState<EquipmentItemRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [regenerationPreview, setRegenerationPreview] = useState<RegenerationPreview | null>(null);
+  const [nutritionRegenerationPreview, setNutritionRegenerationPreview] =
+    useState<NutritionRegenerationPreview | null>(null);
   const [accepting, setAccepting] = useState(false);
 
   useEffect(() => {
@@ -172,26 +178,41 @@ export default function EditProfileScreen({
     }
 
     const planAffecting = original ? didPlanAffectingFieldChange(original, nextInput) : false;
+    const nutritionAffecting = original ? didNutritionAffectingFieldChange(original, nextInput) : false;
 
     const persisted = await persist(nextInput);
     if (!persisted) {
       return;
     }
 
-    if (planAffecting) {
-      // FR-2.4: preview the candidate plan (pure, zero writes) and its diff
-      // against the current plan *before* asking the user to decide —
-      // diff-before-accept, not accept-then-explain.
-      const previewResult = await buildRegenerationPreview(client, userId);
-      if (previewResult.error || !previewResult.data) {
+    if (planAffecting || nutritionAffecting) {
+      // FR-2.4/Flow 2.7: preview whichever candidate(s) apply (pure, zero
+      // writes) and their diff(s) against the current plan/targets
+      // *before* asking the user to decide — diff-before-accept, not
+      // accept-then-explain. A single combined prompt is shown regardless
+      // of whether one or both are affected, per Flow 2.7's "regenerates
+      // workout plan and/or nutrition targets" wording.
+      const [planPreviewResult, nutritionPreviewResult] = await Promise.all([
+        planAffecting ? buildRegenerationPreview(client, userId) : Promise.resolve(null),
+        nutritionAffecting ? buildNutritionRegenerationPreview(client, userId) : Promise.resolve(null),
+      ]);
+
+      if (planPreviewResult && (planPreviewResult.error || !planPreviewResult.data)) {
         // Degrade gracefully rather than blocking the already-persisted
         // profile save on a preview failure: surface the error and finish
         // the save flow as if regeneration had been declined.
-        setError(previewResult.error ?? 'Failed to preview plan regeneration.');
+        setError(planPreviewResult.error ?? 'Failed to preview plan regeneration.');
         onSaved?.();
         return;
       }
-      setRegenerationPreview(previewResult.data);
+      if (nutritionPreviewResult && (nutritionPreviewResult.error || !nutritionPreviewResult.data)) {
+        setError(nutritionPreviewResult.error ?? 'Failed to preview nutrition target regeneration.');
+        onSaved?.();
+        return;
+      }
+
+      if (planPreviewResult) setRegenerationPreview(planPreviewResult.data);
+      if (nutritionPreviewResult) setNutritionRegenerationPreview(nutritionPreviewResult.data);
       return;
     }
 
@@ -199,24 +220,36 @@ export default function EditProfileScreen({
   }
 
   async function handleAcceptRegenerate() {
-    if (!regenerationPreview) return;
+    if (!regenerationPreview && !nutritionRegenerationPreview) return;
     setAccepting(true);
-    const result = await createWorkoutPlan(client, userId, regenerationPreview.candidatePlan);
+    const [planResult, nutritionResult] = await Promise.all([
+      regenerationPreview ? createWorkoutPlan(client, userId, regenerationPreview.candidatePlan) : null,
+      nutritionRegenerationPreview
+        ? createNutritionTargets(client, userId, nutritionRegenerationPreview.candidateTargets)
+        : null,
+    ]);
     setAccepting(false);
-    if (result.error) {
-      setError(result.error);
+    if (planResult?.error) {
+      setError(planResult.error);
+      return;
+    }
+    if (nutritionResult?.error) {
+      setError(nutritionResult.error);
       return;
     }
     setRegenerationPreview(null);
+    setNutritionRegenerationPreview(null);
     onRegenerateRequested?.();
     onSaved?.();
   }
 
   function handleDeclineRegenerate() {
     // FR-1.4/AC-3: declining leaves the existing plan/targets unchanged —
-    // no write call is made, and onRegenerateRequested is deliberately NOT
-    // called here. The profile edit itself was already persisted above.
+    // no write call is made for either, and onRegenerateRequested is
+    // deliberately NOT called here. The profile edit itself was already
+    // persisted above.
     setRegenerationPreview(null);
+    setNutritionRegenerationPreview(null);
     onSaved?.();
   }
 
@@ -242,10 +275,11 @@ export default function EditProfileScreen({
     );
   }
 
-  if (regenerationPreview) {
+  if (regenerationPreview || nutritionRegenerationPreview) {
     return (
       <RegeneratePlanPrompt
-        diffSummary={regenerationPreview.diffSummary}
+        diffSummary={regenerationPreview?.diffSummary}
+        nutritionDiffSummary={nutritionRegenerationPreview?.diffSummary}
         onAccept={handleAcceptRegenerate}
         onDecline={handleDeclineRegenerate}
         accepting={accepting}

@@ -5,6 +5,7 @@ import {
   createWorkoutPlan,
   generateInitialPlan,
   getCurrentPlan,
+  getPlannedSessionById,
   type WorkoutPlanRow,
 } from './plans';
 import { createMockClient, createQueryBuilderMock } from './testSupport/mockClient';
@@ -337,5 +338,53 @@ describe('buildRegenerationPreview (FR-2.4)', () => {
       expect(builder.update).not.toHaveBeenCalled();
       expect(builder.delete).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe('getPlannedSessionById (FR-5.2, Phase 7)', () => {
+  test('fetches the session scoped to user_id and its prescribed exercises with joined names', async () => {
+    const { client, from } = createMockClient();
+    from
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: { id: 'session-1', workout_plan_id: 'plan-1', user_id: 'user-1', day_order: 1, name: 'Full Body', created_at: '' },
+          error: null,
+        }),
+      )
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [
+            {
+              id: 'pse-1',
+              planned_session_id: 'session-1',
+              user_id: 'user-1',
+              exercise_id: 'ex-1',
+              order_index: 0,
+              target_sets: 3,
+              target_reps_min: 8,
+              target_reps_max: 12,
+              target_weight_kg: null,
+              intensity_note: 'note',
+              created_at: '',
+            },
+          ],
+          error: null,
+        }),
+      )
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }], error: null }));
+
+    const result = await getPlannedSessionById(client, 'user-1', 'session-1');
+
+    expect(result.data?.exercises[0].exerciseName).toBe('Squat');
+    expect(result.data?.workoutPlanId).toBe('plan-1');
+  });
+
+  test('returns null data (not an error) when the session does not exist or is not owned by this user', async () => {
+    const { client, from } = createMockClient();
+    from.mockReturnValueOnce(createQueryBuilderMock({ data: null, error: null }));
+
+    const result = await getPlannedSessionById(client, 'user-1', 'session-1');
+
+    expect(result).toEqual({ data: null, error: null });
   });
 });

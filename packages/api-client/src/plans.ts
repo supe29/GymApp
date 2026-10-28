@@ -54,6 +54,40 @@ function result<T>(data: T | null, error: { message: string } | null): ApiResult
   return { data, error: error ? error.message : null };
 }
 
+function toPersistedPrescribedExercise(
+  row: PlannedSessionExerciseRow,
+  exerciseNameById: Map<string, string>,
+): PersistedPrescribedExercise {
+  return {
+    id: row.id,
+    exerciseId: row.exercise_id,
+    exerciseName: exerciseNameById.get(row.exercise_id) ?? row.exercise_id,
+    orderIndex: row.order_index,
+    targetSets: row.target_sets,
+    targetRepsMin: row.target_reps_min,
+    targetRepsMax: row.target_reps_max,
+    targetWeightKg: row.target_weight_kg,
+    intensityNote: row.intensity_note,
+  };
+}
+
+async function fetchExerciseNamesById(
+  client: GymSupabaseClient,
+  exerciseIds: string[],
+): Promise<ApiResult<Map<string, string>>> {
+  if (exerciseIds.length === 0) {
+    return { data: new Map(), error: null };
+  }
+  const { data: nameRows, error: nameError } = await client
+    .from('exercises')
+    .select('id, name')
+    .in('id', exerciseIds);
+  if (nameError) {
+    return result<Map<string, string>>(null, nameError);
+  }
+  return { data: new Map((nameRows ?? []).map((row) => [row.id, row.name])), error: null };
+}
+
 function toPersistedPlan(
   planRow: WorkoutPlanRow,
   sessionRows: PlannedSessionRow[],
@@ -63,17 +97,7 @@ function toPersistedPlan(
   const exercisesBySessionId = new Map<string, PersistedPrescribedExercise[]>();
   for (const row of exerciseRows) {
     const list = exercisesBySessionId.get(row.planned_session_id) ?? [];
-    list.push({
-      id: row.id,
-      exerciseId: row.exercise_id,
-      exerciseName: exerciseNameById.get(row.exercise_id) ?? row.exercise_id,
-      orderIndex: row.order_index,
-      targetSets: row.target_sets,
-      targetRepsMin: row.target_reps_min,
-      targetRepsMax: row.target_reps_max,
-      targetWeightKg: row.target_weight_kg,
-      intensityNote: row.intensity_note,
-    });
+    list.push(toPersistedPrescribedExercise(row, exerciseNameById));
     exercisesBySessionId.set(row.planned_session_id, list);
   }
 
@@ -143,20 +167,80 @@ export async function getCurrentPlan(
     }
     exerciseRows = exRows ?? [];
 
-    const exerciseIds = [...new Set(exerciseRows.map((e) => e.exercise_id))];
-    if (exerciseIds.length > 0) {
-      const { data: nameRows, error: nameError } = await client
-        .from('exercises')
-        .select('id, name')
-        .in('id', exerciseIds);
-      if (nameError) {
-        return result(null, nameError);
-      }
-      exerciseNameById = new Map((nameRows ?? []).map((row) => [row.id, row.name]));
+    const namesRes = await fetchExerciseNamesById(client, [...new Set(exerciseRows.map((e) => e.exercise_id))]);
+    if (namesRes.error || !namesRes.data) {
+      return result(null, { message: namesRes.error ?? 'Failed to fetch exercise names.' });
     }
+    exerciseNameById = namesRes.data;
   }
 
   return { data: toPersistedPlan(planRow, sessions, exerciseRows, exerciseNameById), error: null };
+}
+
+export interface PlannedSessionDetail {
+  id: string;
+  workoutPlanId: string;
+  dayOrder: number;
+  name: string;
+  exercises: PersistedPrescribedExercise[];
+}
+
+/**
+ * FR-5.2 (Phase 7): fetches one planned session's prescribed exercises,
+ * for pre-filling a plan-attached workout session. Scoped to `userId` via
+ * an explicit eq filter in addition to RLS, matching this file's existing
+ * query style. Returns null data (not an error) if the session doesn't
+ * exist or doesn't belong to this user.
+ */
+export async function getPlannedSessionById(
+  client: GymSupabaseClient,
+  userId: string,
+  plannedSessionId: string,
+): Promise<ApiResult<PlannedSessionDetail | null>> {
+  const { data: sessionRow, error: sessionError } = await client
+    .from('planned_sessions')
+    .select('*')
+    .eq('id', plannedSessionId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (sessionError) {
+    return result(null, sessionError);
+  }
+  if (!sessionRow) {
+    return { data: null, error: null };
+  }
+
+  const { data: exerciseRows, error: exError } = await client
+    .from('planned_session_exercises')
+    .select('*')
+    .eq('planned_session_id', plannedSessionId)
+    .order('order_index');
+  if (exError) {
+    return result(null, exError);
+  }
+
+  const namesRes = await fetchExerciseNamesById(
+    client,
+    [...new Set((exerciseRows ?? []).map((e) => e.exercise_id))],
+  );
+  if (namesRes.error || !namesRes.data) {
+    return result(null, { message: namesRes.error ?? 'Failed to fetch exercise names.' });
+  }
+
+  const exercises = (exerciseRows ?? [])
+    .map((row) => toPersistedPrescribedExercise(row, namesRes.data as Map<string, string>))
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+
+  return {
+    data: {
+      id: sessionRow.id,
+      workoutPlanId: sessionRow.workout_plan_id,
+      dayOrder: sessionRow.day_order,
+      name: sessionRow.name,
+      exercises,
+    },
+    error: null,
+  };
 }
 
 /**

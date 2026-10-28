@@ -12,6 +12,8 @@ jest.mock('api-client', () => ({
   requestAccountDeletion: jest.fn(),
   buildRegenerationPreview: jest.fn(),
   createWorkoutPlan: jest.fn(),
+  buildNutritionRegenerationPreview: jest.fn(),
+  createNutritionTargets: jest.fn(),
 }));
 
 const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
@@ -63,6 +65,36 @@ const fakeRegenerationPreview = {
   currentPlan: null,
 };
 
+const fakeCandidateNutritionTargets = {
+  dailyCalories: 2200,
+  proteinG: 160,
+  carbsG: 220,
+  fatG: 60,
+  unsafeConfigurationWarning: null as string | null,
+  provenance: {
+    bmr: 1700,
+    tdee: 2200,
+    activityMultiplier: 1.55,
+    goalAdjustmentFraction: 0,
+    preClampCalories: 2200,
+    calorieFloor: 1500,
+    floorApplied: false,
+  },
+};
+
+const emptyNutritionDiffSummary = {
+  changed: false,
+  previous: null,
+  next: { dailyCalories: 2200, proteinG: 160, carbsG: 220, fatG: 60 },
+  deltas: { dailyCalories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+};
+
+const fakeNutritionRegenerationPreview = {
+  candidateTargets: fakeCandidateNutritionTargets,
+  diffSummary: emptyNutritionDiffSummary,
+  currentTargets: null,
+};
+
 async function renderLoaded() {
   mockedApiClient.getProfile.mockResolvedValue({ data: baseProfile as never, error: null });
   mockedApiClient.getUserEquipmentIds.mockResolvedValue({ data: [], error: null });
@@ -71,6 +103,11 @@ async function renderLoaded() {
   mockedApiClient.setUserEquipment.mockResolvedValue({ error: null });
   mockedApiClient.buildRegenerationPreview.mockResolvedValue({ data: fakeRegenerationPreview, error: null });
   mockedApiClient.createWorkoutPlan.mockResolvedValue({ data: null as never, error: null });
+  mockedApiClient.buildNutritionRegenerationPreview.mockResolvedValue({
+    data: fakeNutritionRegenerationPreview,
+    error: null,
+  });
+  mockedApiClient.createNutritionTargets.mockResolvedValue({ data: null as never, error: null });
 
   const utils = render(<EditProfileScreen client={fakeClient} userId="user-1" />);
   await waitFor(() => expect(utils.queryByTestId('edit-profile-loading')).toBeNull());
@@ -80,7 +117,7 @@ async function renderLoaded() {
 describe('EditProfileScreen (FR-1.3/FR-1.4/AC-3)', () => {
   afterEach(() => jest.clearAllMocks());
 
-  test('saving without changing a plan-affecting field calls onSaved directly, without a regenerate prompt', async () => {
+  test('saving without changing any field calls onSaved directly, without a regenerate prompt', async () => {
     const onSaved = jest.fn();
     const onRegenerateRequested = jest.fn();
     mockedApiClient.getProfile.mockResolvedValue({ data: baseProfile as never, error: null });
@@ -99,27 +136,25 @@ describe('EditProfileScreen (FR-1.3/FR-1.4/AC-3)', () => {
     );
     await waitFor(() => expect(queryByTestId('edit-profile-loading')).toBeNull());
 
-    // Change only age, which is not plan-affecting.
-    fireEvent.changeText(getByTestId('edit-profile-age'), '31');
     fireEvent.press(getByTestId('edit-profile-save'));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(mockedApiClient.updateProfile).toHaveBeenCalledWith(
-      fakeClient,
-      'user-1',
-      expect.objectContaining({ age: 31 }),
-    );
     expect(onRegenerateRequested).not.toHaveBeenCalled();
     expect(queryByTestId('regenerate-accept')).toBeNull();
+    expect(mockedApiClient.buildRegenerationPreview).not.toHaveBeenCalled();
+    expect(mockedApiClient.buildNutritionRegenerationPreview).not.toHaveBeenCalled();
   });
 
-  test('changing a plan-affecting field (goal) surfaces the regenerate prompt', async () => {
+  test('changing a plan-and-nutrition-affecting field (goal) surfaces the combined regenerate prompt', async () => {
     const { getByTestId } = await renderLoaded();
 
     fireEvent.press(getByTestId('edit-profile-goal-fat_loss'));
     fireEvent.press(getByTestId('edit-profile-save'));
 
     await waitFor(() => expect(getByTestId('regenerate-accept')).toBeTruthy());
+    // Both previews are built since goal affects both the plan and nutrition targets.
+    expect(mockedApiClient.buildRegenerationPreview).toHaveBeenCalledWith(fakeClient, 'user-1');
+    expect(mockedApiClient.buildNutritionRegenerationPreview).toHaveBeenCalledWith(fakeClient, 'user-1');
     // The profile field change itself is persisted immediately (AC-3 is
     // about the plan/targets, not the profile row).
     expect(mockedApiClient.updateProfile).toHaveBeenCalledWith(
@@ -129,7 +164,42 @@ describe('EditProfileScreen (FR-1.3/FR-1.4/AC-3)', () => {
     );
   });
 
-  test('AC-3: declining the regenerate prompt does not call onRegenerateRequested', async () => {
+  test('a nutrition-only-affecting field change (age) also surfaces the prompt, with no plan preview built', async () => {
+    const { getByTestId } = await renderLoaded();
+
+    fireEvent.changeText(getByTestId('edit-profile-age'), '31');
+    fireEvent.press(getByTestId('edit-profile-save'));
+
+    await waitFor(() => expect(getByTestId('regenerate-accept')).toBeTruthy());
+    expect(mockedApiClient.buildNutritionRegenerationPreview).toHaveBeenCalledWith(fakeClient, 'user-1');
+    expect(mockedApiClient.buildRegenerationPreview).not.toHaveBeenCalled();
+  });
+
+  test("a plan-only-affecting field change (equipment) surfaces the prompt, with no nutrition preview built", async () => {
+    mockedApiClient.getProfile.mockResolvedValue({ data: baseProfile as never, error: null });
+    mockedApiClient.getUserEquipmentIds.mockResolvedValue({ data: [], error: null });
+    // A real item is needed so the "full gym" preset actually changes the
+    // selection (selecting all zero items would be a no-op).
+    mockedApiClient.listEquipmentItems.mockResolvedValue({
+      data: [{ id: 'eq-barbell', key: 'barbell', display_name: 'Barbell', category: 'free_weights' as const, created_at: '' }],
+      error: null,
+    });
+    mockedApiClient.updateProfile.mockResolvedValue({ data: baseProfile as never, error: null });
+    mockedApiClient.setUserEquipment.mockResolvedValue({ error: null });
+    mockedApiClient.buildRegenerationPreview.mockResolvedValue({ data: fakeRegenerationPreview, error: null });
+
+    const { getByTestId } = render(<EditProfileScreen client={fakeClient} userId="user-1" />);
+    await waitFor(() => expect(mockedApiClient.getProfile).toHaveBeenCalled());
+
+    fireEvent.press(getByTestId('equipment-preset-full-gym'));
+    fireEvent.press(getByTestId('edit-profile-save'));
+
+    await waitFor(() => expect(getByTestId('regenerate-accept')).toBeTruthy());
+    expect(mockedApiClient.buildRegenerationPreview).toHaveBeenCalledWith(fakeClient, 'user-1');
+    expect(mockedApiClient.buildNutritionRegenerationPreview).not.toHaveBeenCalled();
+  });
+
+  test('AC-3: declining the regenerate prompt does not call onRegenerateRequested or write anything', async () => {
     const onRegenerateRequested = jest.fn();
     const onSaved = jest.fn();
     mockedApiClient.getProfile.mockResolvedValue({ data: baseProfile as never, error: null });
@@ -138,6 +208,10 @@ describe('EditProfileScreen (FR-1.3/FR-1.4/AC-3)', () => {
     mockedApiClient.updateProfile.mockResolvedValue({ data: baseProfile as never, error: null });
     mockedApiClient.setUserEquipment.mockResolvedValue({ error: null });
     mockedApiClient.buildRegenerationPreview.mockResolvedValue({ data: fakeRegenerationPreview, error: null });
+    mockedApiClient.buildNutritionRegenerationPreview.mockResolvedValue({
+      data: fakeNutritionRegenerationPreview,
+      error: null,
+    });
 
     const { getByTestId } = render(
       <EditProfileScreen
@@ -157,10 +231,11 @@ describe('EditProfileScreen (FR-1.3/FR-1.4/AC-3)', () => {
 
     expect(onRegenerateRequested).not.toHaveBeenCalled();
     expect(mockedApiClient.createWorkoutPlan).not.toHaveBeenCalled();
+    expect(mockedApiClient.createNutritionTargets).not.toHaveBeenCalled();
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
-  test('accepting the regenerate prompt persists the plan, then calls onRegenerateRequested, then onSaved, in order', async () => {
+  test('accepting the regenerate prompt persists both the plan and nutrition targets, then calls onRegenerateRequested, then onSaved', async () => {
     const callOrder: string[] = [];
     const onRegenerateRequested = jest.fn(() => callOrder.push('onRegenerateRequested'));
     const onSaved = jest.fn(() => callOrder.push('onSaved'));
@@ -170,8 +245,16 @@ describe('EditProfileScreen (FR-1.3/FR-1.4/AC-3)', () => {
     mockedApiClient.updateProfile.mockResolvedValue({ data: baseProfile as never, error: null });
     mockedApiClient.setUserEquipment.mockResolvedValue({ error: null });
     mockedApiClient.buildRegenerationPreview.mockResolvedValue({ data: fakeRegenerationPreview, error: null });
+    mockedApiClient.buildNutritionRegenerationPreview.mockResolvedValue({
+      data: fakeNutritionRegenerationPreview,
+      error: null,
+    });
     mockedApiClient.createWorkoutPlan.mockImplementation(async () => {
       callOrder.push('createWorkoutPlan');
+      return { data: null as never, error: null };
+    });
+    mockedApiClient.createNutritionTargets.mockImplementation(async () => {
+      callOrder.push('createNutritionTargets');
       return { data: null as never, error: null };
     });
 
@@ -185,6 +268,7 @@ describe('EditProfileScreen (FR-1.3/FR-1.4/AC-3)', () => {
     );
     await waitFor(() => expect(mockedApiClient.getProfile).toHaveBeenCalled());
 
+    // trainingDaysPerWeek affects both the plan and nutrition targets.
     fireEvent.press(getByTestId('edit-profile-training-days-5'));
     fireEvent.press(getByTestId('edit-profile-save'));
     await waitFor(() => expect(getByTestId('regenerate-accept')).toBeTruthy());
@@ -197,7 +281,16 @@ describe('EditProfileScreen (FR-1.3/FR-1.4/AC-3)', () => {
       'user-1',
       fakeRegenerationPreview.candidatePlan,
     );
-    expect(callOrder).toEqual(['createWorkoutPlan', 'onRegenerateRequested', 'onSaved']);
+    expect(mockedApiClient.createNutritionTargets).toHaveBeenCalledWith(
+      fakeClient,
+      'user-1',
+      fakeNutritionRegenerationPreview.candidateTargets,
+    );
+    // Both persistence calls happen before the completion callbacks; their
+    // relative order to each other is not significant (they run in parallel).
+    expect(callOrder.indexOf('createWorkoutPlan')).toBeLessThan(callOrder.indexOf('onRegenerateRequested'));
+    expect(callOrder.indexOf('createNutritionTargets')).toBeLessThan(callOrder.indexOf('onRegenerateRequested'));
+    expect(callOrder.indexOf('onRegenerateRequested')).toBeLessThan(callOrder.indexOf('onSaved'));
     expect(mockedApiClient.updateProfile).toHaveBeenCalledWith(
       fakeClient,
       'user-1',

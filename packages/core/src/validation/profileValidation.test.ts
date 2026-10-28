@@ -1,6 +1,8 @@
 import {
+  didNutritionAffectingFieldChange,
   didPlanAffectingFieldChange,
   fieldsAffectingGeneratedPlan,
+  fieldsAffectingNutritionTargets,
   ProfileInput,
   validateProfileInput,
 } from './profileValidation';
@@ -166,5 +168,64 @@ describe('didPlanAffectingFieldChange (FR-1.4)', () => {
       equipmentItemIds: [...validInput.equipmentItemIds].reverse(),
     };
     expect(didPlanAffectingFieldChange(validInput, next)).toBe(false);
+  });
+});
+
+describe('didNutritionAffectingFieldChange (FR-1.4/Phase 6)', () => {
+  test('returns false when nothing changes', () => {
+    expect(didNutritionAffectingFieldChange(validInput, { ...validInput })).toBe(false);
+  });
+
+  test('returns false when only equipment changes (irrelevant to nutrition math)', () => {
+    expect(
+      didNutritionAffectingFieldChange(validInput, {
+        ...validInput,
+        equipmentItemIds: [...validInput.equipmentItemIds, 'equip-3'],
+      }),
+    ).toBe(false);
+  });
+
+  test('returns false when only fitnessLevel changes (BMR/TDEE use trainingDaysPerWeek, not fitnessLevel)', () => {
+    expect(
+      didNutritionAffectingFieldChange(validInput, { ...validInput, fitnessLevel: 'advanced' }),
+    ).toBe(false);
+  });
+
+  test.each(fieldsAffectingNutritionTargets())('returns true when %s changes', (field) => {
+    const next: ProfileInput = { ...validInput };
+    switch (field) {
+      case 'age':
+        next.age = validInput.age + 1;
+        break;
+      case 'heightCm':
+        next.heightCm = validInput.heightCm + 1;
+        break;
+      case 'weightKg':
+        next.weightKg = validInput.weightKg + 5;
+        break;
+      case 'biologicalSex':
+        next.biologicalSex = 'male';
+        break;
+      case 'goal':
+        next.goal = 'fat_loss';
+        break;
+      case 'trainingDaysPerWeek':
+        next.trainingDaysPerWeek = validInput.trainingDaysPerWeek + 1;
+        break;
+      default:
+        throw new Error(`unexpected nutrition-affecting field in test: ${field}`);
+    }
+    expect(didNutritionAffectingFieldChange(validInput, next)).toBe(true);
+  });
+
+  test('the nutrition and plan field sets overlap but are not identical', () => {
+    const nutritionFields = new Set(fieldsAffectingNutritionTargets());
+    const planFields = new Set(fieldsAffectingGeneratedPlan());
+    expect(nutritionFields.has('equipmentItemIds')).toBe(false);
+    expect(planFields.has('equipmentItemIds')).toBe(true);
+    expect(nutritionFields.has('age')).toBe(true);
+    expect(planFields.has('age')).toBe(false);
+    // Both sets care about goal and trainingDaysPerWeek.
+    expect(nutritionFields.has('goal') && planFields.has('goal')).toBe(true);
   });
 });

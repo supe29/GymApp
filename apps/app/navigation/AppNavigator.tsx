@@ -5,6 +5,7 @@ import SignInScreen from '../features/auth/SignInScreen';
 import AuthGate from './AuthGate';
 import DevMuscleExplorerHarness from './DevMuscleExplorerHarness';
 import DevWorkoutPlanHarness from './DevWorkoutPlanHarness';
+import DevWorkoutSessionHarness from './DevWorkoutSessionHarness';
 
 /**
  * Enforces FR-9.4 (no functionality reachable without signing in) for
@@ -21,7 +22,9 @@ import DevWorkoutPlanHarness from './DevWorkoutPlanHarness';
  * configured. Delete this branch when Phase 11 lands.
  */
 export default function AppNavigator() {
-  const [devHarness, setDevHarness] = useState<'muscle-explorer' | 'workout-plan'>('muscle-explorer');
+  const [devHarness, setDevHarness] = useState<'muscle-explorer' | 'workout-plan' | 'workout-session'>(
+    'muscle-explorer',
+  );
 
   if (__DEV__) {
     return (
@@ -41,8 +44,17 @@ export default function AppNavigator() {
           >
             <Text style={styles.devSwitchText}>Workout Plan</Text>
           </Pressable>
+          <Pressable
+            testID="dev-harness-switch-workout-session"
+            style={styles.devSwitchButton}
+            onPress={() => setDevHarness('workout-session')}
+          >
+            <Text style={styles.devSwitchText}>Workout Session</Text>
+          </Pressable>
         </View>
-        {devHarness === 'muscle-explorer' ? <DevMuscleExplorerHarness /> : <DevWorkoutPlanHarness />}
+        {devHarness === 'muscle-explorer' ? <DevMuscleExplorerHarness /> : null}
+        {devHarness === 'workout-plan' ? <DevWorkoutPlanHarness /> : null}
+        {devHarness === 'workout-session' ? <DevWorkoutSessionHarness /> : null}
       </View>
     );
   }

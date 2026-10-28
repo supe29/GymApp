@@ -158,3 +158,22 @@ export function didPlanAffectingFieldChange(
   }
   return false;
 }
+
+/**
+ * Profile fields whose change must prompt nutrition-target regeneration
+ * (FR-1.4/Phase 6). Distinct from fieldsAffectingGeneratedPlan(): equipment
+ * has no bearing on calorie/macro math, and fitnessLevel is not used by
+ * the BMR/TDEE formulas (trainingDaysPerWeek is the activity-volume
+ * signal those formulas actually consume) — so the two field sets overlap
+ * but are not identical.
+ */
+export function fieldsAffectingNutritionTargets(): Array<keyof ProfileInput> {
+  return ['age', 'heightCm', 'weightKg', 'biologicalSex', 'goal', 'trainingDaysPerWeek'];
+}
+
+export function didNutritionAffectingFieldChange(
+  previous: ProfileInput,
+  next: ProfileInput,
+): boolean {
+  return fieldsAffectingNutritionTargets().some((field) => previous[field] !== next[field]);
+}

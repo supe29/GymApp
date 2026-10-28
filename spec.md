@@ -241,12 +241,12 @@ Carried forward from `intent.md`:
 - Whether/how an AI coaching/chat layer is introduced later (constrained by AI-1–AI-4 above, but not designed).
 
 New, surfaced while writing this spec:
-- OQ-1: Exact safe-minimum calorie floor values (SR-1) need confirmation against a credible nutritional-safety reference before implementation.
+- ~~OQ-1: Exact safe-minimum calorie floor values (SR-1) need confirmation against a credible nutritional-safety reference before implementation.~~ **Resolved in Phase 6**: 1200 kcal/day (`female`), 1500 kcal/day (`male`); `prefer_not_to_say` uses the higher (safer) floor, 1500 kcal/day, not an average. See `/docs/decisions/OQ-1-safe-calorie-floor.md` for full rationale and alternatives considered.
 - OQ-2: Exact muscle-group taxonomy (which ~15-20 regions) is not yet defined.
 - OQ-3: Exact progressive-overload rule (increment size, e.g., fixed +2.5kg vs. percentage-based) is not yet defined.
 - OQ-4: PR calculation method (raw heaviest set vs. estimated 1RM formula) is not yet decided.
 - OQ-5: Rescheduling behavior when a user misses or skips a planned session day is not yet defined.
 - ~~OQ-6: Whether biological sex is a fixed binary field or supports a non-binary/"prefer not to say" option (and, if so, which BMR formula path applies) is not yet decided.~~ **Resolved in Phase 2**: three-value field (`male`/`female`/`prefer_not_to_say`), not binary and not free text; `prefer_not_to_say` uses the arithmetic mean of the male/female Mifflin-St Jeor constant terms in Phase 6. See `/docs/decisions/OQ-6-biological-sex.md` for full rationale and alternatives considered.
 - OQ-7: Whether custom user-created foods should ever be promoted into a shared/global food database (data quality vs. privacy tradeoff) is undecided.
-- OQ-8: Extent of the "unsafe configuration" warning in SR-2 — what specific thresholds trigger it, and whether it blocks plan generation or only warns, is undecided.
+- ~~OQ-8: Extent of the "unsafe configuration" warning in SR-2 — what specific thresholds trigger it, and whether it blocks plan generation or only warns, is undecided.~~ **Resolved in Phase 6**: non-blocking (generation always proceeds; the SR-1 floor still clamps the number); warning triggers on `goal === 'fat_loss'` combined with `trainingDaysPerWeek >= 6`, or a pre-floor-clamp target more than 300 kcal below the applicable SR-1 floor. See `/docs/decisions/OQ-1-safe-calorie-floor.md` for full rationale.
 - OQ-9: Data export (not just deletion) — whether users can export their own data (a common privacy-rights expectation) is not yet addressed.

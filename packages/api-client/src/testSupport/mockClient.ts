@@ -18,6 +18,7 @@ export function createQueryBuilderMock(result: { data: unknown; error: unknown }
     order: jest.fn(() => builder),
     limit: jest.fn(() => builder),
     insert: jest.fn(() => builder),
+    upsert: jest.fn(() => builder),
     update: jest.fn(() => builder),
     delete: jest.fn(() => builder),
     maybeSingle: jest.fn(() => Promise.resolve(result)),

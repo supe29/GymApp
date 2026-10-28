@@ -541,17 +541,17 @@ Carried from `spec.md`, mapped to where they must be resolved before that phase 
 
 | Question | Must resolve by |
 |---|---|
-| OQ-1: Exact safe-minimum calorie floor values | Phase 6 |
+| ~~OQ-1: Exact safe-minimum calorie floor values~~ — **Resolved in Phase 6**, see `/docs/decisions/OQ-1-safe-calorie-floor.md` | Phase 6 |
 | OQ-2: Exact muscle-group taxonomy | Phase 3 |
 | OQ-3: Exact progressive-overload increment rule | Phase 8 |
 | OQ-4: PR calculation method | Phase 10 |
 | OQ-5: Rescheduling behavior for missed/skipped sessions | Phase 5 (or explicitly deferred past V1) |
 | ~~OQ-6: Biological sex field options and formula branching~~ — **Resolved in Phase 2**, see `/docs/decisions/OQ-6-biological-sex.md` | Phase 2 |
 | OQ-7: Whether custom foods ever get promoted to a shared database | Not required for V1; deferred |
-| OQ-8: Exact SR-2 unsafe-configuration thresholds and block-vs-warn behavior | Phase 6 |
+| ~~OQ-8: Exact SR-2 unsafe-configuration thresholds and block-vs-warn behavior~~ — **Resolved in Phase 6**, see `/docs/decisions/OQ-1-safe-calorie-floor.md` | Phase 6 |
 | OQ-9: Data export capability (beyond deletion) | Not currently scoped in any phase — flagged for product decision before Phase 12 sign-off |
 | OQ-10: Exact numeric tolerance for 3D-renderer parity (camera/zoom/rotation equivalence thresholds) | Phase 4 |
-| OQ-11: Exact local-queue/retry policy for connectivity drops during workout logging (how long to retry, how to surface a permanently-failed sync to the user) | Phase 7 |
+| ~~OQ-11: Exact local-queue/retry policy for connectivity drops during workout logging (how long to retry, how to surface a permanently-failed sync to the user)~~ — **Resolved in Phase 7**, see `/docs/decisions/OQ-11-connectivity-retry-policy.md` | Phase 7 |
 | OQ-12: Precise allow-list of fields permitted in external barcode/food lookup payloads, and the retention period for any lookup logging | Phase 9 |
 | OQ-13: Go/no-go outcome for each external asset's licensing review (3D mesh, exercise dataset, each food/barcode source) | Phase 0.5 — blocks start of Phase 3, Phase 4, and Phase 9 respectively |
 | OQ-14: When a profile edit's regeneration prompt is declined, whether the user can later manually revert to a superseded `plan_version`/`target_version`, or only ever move forward to a new version | Phase 5 / Phase 6 |
@@ -671,6 +671,6 @@ All open items are tracked in the **Unresolved Questions Blocking Specific Phase
 
 - **OQ-13** (licensing go/no-go outcomes) gates the start of Phase 3, Phase 4, and Phase 9 — this is now a hard dependency, not a soft assumption, so a negative outcome on any asset has immediate schedule impact and should be resourced early.
 - **OQ-10** (3D parity numeric tolerance) needs a concrete threshold before Phase 4's parity suite can assert pass/fail rather than just report a delta.
-- **OQ-11** (connectivity retry policy specifics) needs a concrete policy (retry count/backoff, and what "permanently failed" looks like to the user) before Phase 7's resilience tests can be written precisely.
+- ~~**OQ-11** (connectivity retry policy specifics) needs a concrete policy (retry count/backoff, and what "permanently failed" looks like to the user) before Phase 7's resilience tests can be written precisely.~~ **Resolved in Phase 7** — see `/docs/decisions/OQ-11-connectivity-retry-policy.md`.
 - **OQ-12** (exact PII allow-list for external lookups) needs sign-off from whoever owns PR-7's eventual compliance posture, since the two are related — a stricter compliance posture later may require a stricter allow-list than a minimal V1 implementation would otherwise choose.
 - **PR-7** (regulatory compliance posture) remains explicitly out of this plan's scope, pending the target-market decision carried from `intent.md`; it is the one open item with no phase that can resolve it — it requires a product/business decision upstream of engineering.
