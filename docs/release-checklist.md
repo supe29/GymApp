@@ -104,10 +104,16 @@ oversights, and are listed as such in `spec.md` §11.
 **Not yet — gated on `/docs/deferred-production-checks.md`.** Every
 acceptance criterion, safety requirement, and open question is resolved or
 explicitly deferred at the code/design level, and the full test suite passes
-in this environment. But this environment has never had: a real Supabase
-project, Docker/Deno, an iOS/Android build or simulator, a real screen
-reader, real app store developer accounts, or real branded store assets.
-`/docs/deferred-production-checks.md` is the authoritative, itemized list of
+in this environment. A real hosted Supabase project now exists and two of
+that list's items are genuinely closed against it (migrations/seeds applied,
+`database.ts` diffed, real auth + cross-user RLS smoke-tested — see
+`/docs/deferred-production-checks.md`'s "Real Supabase Auth/PostgREST
+integration" entry for specifics and residue). Still missing: the
+delete-account edge function has still never executed (no Deno runtime
+here), OAuth providers are unconfigured on the real project, and this
+environment has never had Docker, an iOS/Android build or simulator, a real
+screen reader, real app store developer accounts, or real branded store
+assets. `/docs/deferred-production-checks.md` is the authoritative, itemized list of
 what must be executed for real before production sign-off — nothing on that
 list should be checked off without actually performing the verification it
 describes.

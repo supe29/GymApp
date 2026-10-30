@@ -27,16 +27,29 @@ readiness review — see plan.md Phase 12/13.
       table, including superseded `plan_version`/`target_version` history)
       is now verified — see Phase 12's `AC-13` test in
       `supabase/tests/adversarial.test.mjs` and `docs/security-checklist.md`.
-- [ ] **Real Supabase Auth/PostgREST integration** — every `GymSupabaseClient`
-      call in `packages/api-client` has only been tested against a mock; run
-      the full auth + profile flow against a real local (`supabase start`) or
-      hosted Supabase project.
-- [ ] **Regenerate and diff `database.ts`** — run
-      `supabase gen types typescript --local` (or against a linked project)
-      and diff against `packages/api-client/src/types/database.ts`, the
-      hand-authored version. A real bug was already found and fixed in this
-      file during Phase 2 (missing `Views`/`Functions`/`Enums`/`CompositeTypes`
-      keys) — treat the hand-authored file as unverified until diffed.
+- [x] **Real Supabase Auth/PostgREST integration** — **Done** against a real
+      hosted project (`utkvjdhfrmvklppgyrws.supabase.co`), not a mock: all 9
+      migrations applied via `supabase db push --db-url`, both seed files
+      applied directly, `database.ts` regenerated and diffed against the
+      hand-authored version (zero field-name/nullability mismatches across
+      all 18 tables — the only differences are the hand-authored file's more
+      precise CHECK-constraint-derived union types, which the generator
+      can't produce; expected, not a bug). A real-auth smoke test (real
+      `signUp`, real session, real cross-user RLS attempts on `profiles`,
+      real shared-table reads on `food_items`/`muscle_groups`, real anon
+      rejection) passed 13/13 against the live project. **Residue**: two
+      real test accounts remain in the project (emails `e2e-a+*@example.test`
+      / `e2e-b+*@example.test`) — no `service_role` key was available in
+      this environment to clean them up; delete them from the dashboard if
+      wanted. "Confirm email" was also disabled on this project to make the
+      test possible — re-enable it in Authentication → Providers → Email if
+      that's not the production posture you want. OAuth (Google/Apple) is
+      still unconfigured on this project and untested — see the items above.
+- [x] **Regenerate and diff `database.ts`** — **Done**, see the "Real
+      Supabase Auth/PostgREST integration" item above: regenerated via
+      `supabase gen types typescript --db-url` against the real project and
+      diffed field-by-field against `packages/api-client/src/types/database.ts`.
+      Zero mismatches found.
 - [ ] **Android runtime verification** — no Android SDK/emulator has been
       available in this environment since Phase 0; only `expo export` bundling
       has been verified, never an actual running app.
