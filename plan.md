@@ -542,19 +542,19 @@ Carried from `spec.md`, mapped to where they must be resolved before that phase 
 | Question | Must resolve by |
 |---|---|
 | ~~OQ-1: Exact safe-minimum calorie floor values~~ — **Resolved in Phase 6**, see `/docs/decisions/OQ-1-safe-calorie-floor.md` | Phase 6 |
-| OQ-2: Exact muscle-group taxonomy | Phase 3 |
+| ~~OQ-2: Exact muscle-group taxonomy~~ — **Resolved in Phase 3**, see `/docs/decisions/OQ-2-muscle-group-taxonomy.md` | Phase 3 |
 | ~~OQ-3: Exact progressive-overload increment rule~~ — **Resolved in Phase 8**, see `/docs/decisions/OQ-3-progression-increment-rule.md` | Phase 8 |
 | ~~OQ-4: PR calculation method~~ — **Resolved in Phase 10**, see `/docs/decisions/OQ-4-pr-calculation-method.md` | Phase 10 |
-| OQ-5: Rescheduling behavior for missed/skipped sessions | Phase 5 (or explicitly deferred past V1) |
+| ~~OQ-5: Rescheduling behavior for missed/skipped sessions~~ — **Explicitly deferred past V1 in Phase 13**, see `/docs/decisions/OQ-5-session-rescheduling.md` | Phase 5 (or explicitly deferred past V1) |
 | ~~OQ-6: Biological sex field options and formula branching~~ — **Resolved in Phase 2**, see `/docs/decisions/OQ-6-biological-sex.md` | Phase 2 |
 | OQ-7: Whether custom foods ever get promoted to a shared database | Not required for V1; deferred |
 | ~~OQ-8: Exact SR-2 unsafe-configuration thresholds and block-vs-warn behavior~~ — **Resolved in Phase 6**, see `/docs/decisions/OQ-1-safe-calorie-floor.md` | Phase 6 |
-| OQ-9: Data export capability (beyond deletion) | Not currently scoped in any phase — flagged for product decision before Phase 12 sign-off |
-| OQ-10: Exact numeric tolerance for 3D-renderer parity (camera/zoom/rotation equivalence thresholds) | Phase 4 |
+| ~~OQ-9: Data export capability (beyond deletion)~~ — **Explicitly deferred past V1 in Phase 13** (missed at Phase 12 sign-off, closed retroactively), see `/docs/decisions/OQ-9-data-export.md` | Not currently scoped in any phase — flagged for product decision before Phase 12 sign-off |
+| ~~OQ-10: Exact numeric tolerance for 3D-renderer parity (camera/zoom/rotation equivalence thresholds)~~ — **Resolved in Phase 4**, see `/docs/decisions/OQ-10-3d-parity-tolerance.md` | Phase 4 |
 | ~~OQ-11: Exact local-queue/retry policy for connectivity drops during workout logging (how long to retry, how to surface a permanently-failed sync to the user)~~ — **Resolved in Phase 7**, see `/docs/decisions/OQ-11-connectivity-retry-policy.md` | Phase 7 |
-| OQ-12: Precise allow-list of fields permitted in external barcode/food lookup payloads, and the retention period for any lookup logging | Phase 9 |
-| OQ-13: Go/no-go outcome for each external asset's licensing review (3D mesh, exercise dataset, each food/barcode source) | Phase 0.5 — blocks start of Phase 3, Phase 4, and Phase 9 respectively |
-| OQ-14: When a profile edit's regeneration prompt is declined, whether the user can later manually revert to a superseded `plan_version`/`target_version`, or only ever move forward to a new version | Phase 5 / Phase 6 |
+| ~~OQ-12: Precise allow-list of fields permitted in external barcode/food lookup payloads, and the retention period for any lookup logging~~ — **Explicitly deferred in Phase 13** until a real external source is integrated, see `/docs/decisions/OQ-12-external-lookup-allowlist.md` | Phase 9 |
+| ~~OQ-13: Go/no-go outcome for each external asset's licensing review (3D mesh, exercise dataset, each food/barcode source)~~ — **Resolved**: exercise dataset and 3D mesh signed off (GO), food/barcode dataset explicitly deferred with user sign-off (2026-10-28) to implement against placeholder data, see `/docs/licensing/go-no-go-checklist.md` | Phase 0.5 — blocks start of Phase 3, Phase 4, and Phase 9 respectively |
+| ~~OQ-14: When a profile edit's regeneration prompt is declined, whether the user can later manually revert to a superseded `plan_version`/`target_version`, or only ever move forward to a new version~~ — **Resolved in Phase 13**: forward-only, no revert, see `/docs/decisions/OQ-14-plan-version-revert.md` | Phase 5 / Phase 6 |
 
 None of these block starting Phase 0–1 (infrastructure work), but each must be explicitly resolved (or knowingly deferred with sign-off) before the phase listed above can be marked complete.
 

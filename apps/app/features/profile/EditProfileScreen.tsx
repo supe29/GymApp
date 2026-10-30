@@ -59,6 +59,8 @@ function Chip({
       testID={testID}
       style={[styles.chip, selected && styles.chipSelected]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
@@ -295,7 +297,7 @@ export default function EditProfileScreen({
           This permanently deletes your profile, logs, and weight entries. This cannot be undone.
         </Text>
         {deleteError ? (
-          <Text testID="delete-account-error" style={styles.error}>
+          <Text testID="delete-account-error" style={styles.error} accessibilityRole="alert">
             {deleteError}
           </Text>
         ) : null}
@@ -304,6 +306,7 @@ export default function EditProfileScreen({
           style={styles.button}
           disabled={deleting}
           onPress={handleConfirmDeleteAccount}
+          accessibilityRole="button"
         >
           <Text style={styles.buttonText}>Delete my account</Text>
         </Pressable>
@@ -311,6 +314,7 @@ export default function EditProfileScreen({
           testID="delete-account-cancel"
           style={[styles.button, styles.buttonSecondary]}
           onPress={() => setShowDeleteConfirm(false)}
+          accessibilityRole="button"
         >
           <Text style={styles.buttonText}>Cancel</Text>
         </Pressable>
@@ -327,6 +331,7 @@ export default function EditProfileScreen({
         keyboardType="number-pad"
         value={age}
         onChangeText={setAge}
+        accessibilityLabel="Age"
       />
       <Text style={styles.label}>Height (cm)</Text>
       <TextInput
@@ -335,6 +340,7 @@ export default function EditProfileScreen({
         keyboardType="decimal-pad"
         value={heightCm}
         onChangeText={setHeightCm}
+        accessibilityLabel="Height in centimeters"
       />
       <Text style={styles.label}>Weight (kg)</Text>
       <TextInput
@@ -343,6 +349,7 @@ export default function EditProfileScreen({
         keyboardType="decimal-pad"
         value={weightKg}
         onChangeText={setWeightKg}
+        accessibilityLabel="Weight in kilograms"
       />
 
       <Text style={styles.label}>Biological sex</Text>
@@ -405,12 +412,12 @@ export default function EditProfileScreen({
       />
 
       {error ? (
-        <Text testID="edit-profile-error" style={styles.error}>
+        <Text testID="edit-profile-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
 
-      <Pressable testID="edit-profile-save" style={styles.button} onPress={handleSave}>
+      <Pressable testID="edit-profile-save" style={styles.button} onPress={handleSave} accessibilityRole="button">
         <Text style={styles.buttonText}>Save</Text>
       </Pressable>
 
@@ -418,6 +425,7 @@ export default function EditProfileScreen({
         testID="edit-profile-delete-account"
         style={[styles.button, styles.buttonDanger]}
         onPress={() => setShowDeleteConfirm(true)}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Delete account</Text>
       </Pressable>

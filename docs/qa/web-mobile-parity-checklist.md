@@ -57,6 +57,7 @@ the two items above.
 
 - Real on-device iOS/Android verification of the two "required line items"
   above — added to `/docs/deferred-production-checks.md`.
-- OQ-10 (3D parity tolerance — exact acceptable visual/behavioral
-  deviation between renderers) remains open per `plan.md`, unrelated to
-  this checklist's scope.
+- ~~OQ-10 (3D parity tolerance — exact acceptable visual/behavioral
+  deviation between renderers) remains open per `plan.md`~~ — **resolved in
+  Phase 13**: see `/docs/decisions/OQ-10-3d-parity-tolerance.md` (tolerance
+  is zero at the state layer, by construction of the shared-math contract).

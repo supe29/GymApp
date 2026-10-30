@@ -51,6 +51,7 @@ export default function ResetPasswordScreen({
         testID="reset-password-new"
         style={styles.input}
         placeholder="New password"
+        accessibilityLabel="New password"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -59,13 +60,14 @@ export default function ResetPasswordScreen({
         testID="reset-password-confirm"
         style={styles.input}
         placeholder="Confirm new password"
+        accessibilityLabel="Confirm new password"
         secureTextEntry
         value={confirmPassword}
         onChangeText={setConfirmPassword}
       />
 
       {error ? (
-        <Text testID="reset-password-error" style={styles.error}>
+        <Text testID="reset-password-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -75,6 +77,7 @@ export default function ResetPasswordScreen({
         style={styles.button}
         disabled={submitting}
         onPress={handleSubmit}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Update password</Text>
       </Pressable>

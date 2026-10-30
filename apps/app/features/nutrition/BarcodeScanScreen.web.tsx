@@ -104,7 +104,7 @@ export default function BarcodeScanScreen({ onBarcodeScanned, onManualEntry }: B
             : 'Camera access was denied.'}{' '}
           You can still log this food by entering the barcode manually.
         </Text>
-        <Pressable testID="barcode-scan-manual-entry-button" style={styles.button} onPress={onManualEntry}>
+        <Pressable testID="barcode-scan-manual-entry-button" style={styles.button} onPress={onManualEntry} accessibilityRole="button">
           <Text style={styles.buttonText}>Enter barcode manually</Text>
         </Pressable>
       </View>
@@ -115,7 +115,7 @@ export default function BarcodeScanScreen({ onBarcodeScanned, onManualEntry }: B
     <View style={styles.container} testID="barcode-scan-screen-web">
       <video ref={videoRef} autoPlay muted playsInline style={webVideoStyle} data-testid="barcode-scan-video" />
       <Text testID="barcode-scan-scanning-message">Point your camera at a barcode…</Text>
-      <Pressable testID="barcode-scan-manual-entry-button" style={styles.button} onPress={onManualEntry}>
+      <Pressable testID="barcode-scan-manual-entry-button" style={styles.button} onPress={onManualEntry} accessibilityRole="button">
         <Text style={styles.buttonText}>Enter barcode manually instead</Text>
       </Pressable>
     </View>

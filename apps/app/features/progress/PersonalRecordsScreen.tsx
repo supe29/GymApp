@@ -52,7 +52,7 @@ export default function PersonalRecordsScreen({ client, userId, onStartWorkout }
       <Text style={styles.title}>Personal records</Text>
 
       {error ? (
-        <Text testID="personal-records-error" style={styles.error}>
+        <Text testID="personal-records-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}

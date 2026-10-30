@@ -9,6 +9,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --build --pretty",
     "test": "jest --passWithNoTests",
+    "e2e": "playwright test -c e2e/playwright.config.ts",
     "test:db": "node --test supabase/tests/adversarial.test.mjs supabase/tests/content.test.mjs",
     "content:import-exercises": "tsx data/exercises/scripts/importAndTag.ts",
     "format": "prettier --check .",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.64.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
@@ -28,7 +30,7 @@
     "prettier": "^3.3.0",
     "ts-jest": "^29.4.14",
     "tsx": "^4.23.15",
-    "uuid": "^14.0.2",
-    "typescript": "^5.5.0 || ^6.0.0"
+    "typescript": "^5.5.0 || ^6.0.0",
+    "uuid": "^14.0.2"
   }
 }

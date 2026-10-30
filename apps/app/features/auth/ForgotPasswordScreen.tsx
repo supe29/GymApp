@@ -47,7 +47,11 @@ export default function ForgotPasswordScreen({
           Check your email
         </Text>
         <Text>We sent a password reset link to {email}.</Text>
-        <Pressable testID="forgot-password-goto-signin" onPress={onNavigateToSignIn}>
+        <Pressable
+          testID="forgot-password-goto-signin"
+          onPress={onNavigateToSignIn}
+          accessibilityRole="link"
+        >
           <Text style={styles.link}>Back to sign in</Text>
         </Pressable>
       </View>
@@ -62,6 +66,7 @@ export default function ForgotPasswordScreen({
         testID="forgot-password-email"
         style={styles.input}
         placeholder="Email"
+        accessibilityLabel="Email"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -69,7 +74,7 @@ export default function ForgotPasswordScreen({
       />
 
       {error ? (
-        <Text testID="forgot-password-error" style={styles.error}>
+        <Text testID="forgot-password-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -79,11 +84,12 @@ export default function ForgotPasswordScreen({
         style={styles.button}
         disabled={submitting}
         onPress={handleSubmit}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Send reset link</Text>
       </Pressable>
 
-      <Pressable testID="forgot-password-goto-signin" onPress={onNavigateToSignIn}>
+      <Pressable testID="forgot-password-goto-signin" onPress={onNavigateToSignIn} accessibilityRole="link">
         <Text style={styles.link}>Back to sign in</Text>
       </Pressable>
     </View>

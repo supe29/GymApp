@@ -230,7 +230,7 @@ export default function FreeformSessionScreen({
             unitPreference={unitPreference}
           />
         ))}
-        <Pressable testID="freeform-session-pr-review-done" style={styles.button} onPress={handleDoneReviewingPrs}>
+        <Pressable testID="freeform-session-pr-review-done" style={styles.button} onPress={handleDoneReviewingPrs} accessibilityRole="button">
           <Text style={styles.buttonText}>Done</Text>
         </Pressable>
       </ScrollView>
@@ -245,7 +245,7 @@ export default function FreeformSessionScreen({
   return (
     <ScrollView style={styles.container} testID="freeform-session-screen">
       {error ? (
-        <Text testID="freeform-session-error" style={styles.error}>
+        <Text testID="freeform-session-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -269,7 +269,13 @@ export default function FreeformSessionScreen({
 
       <RestTimer />
 
-      <Pressable testID="freeform-add-exercise-toggle" style={styles.button} onPress={() => setShowAddExercise((v) => !v)}>
+      <Pressable
+        testID="freeform-add-exercise-toggle"
+        style={styles.button}
+        onPress={() => setShowAddExercise((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showAddExercise }}
+      >
         <Text style={styles.buttonText}>Add exercise</Text>
       </Pressable>
       {showAddExercise ? (
@@ -280,6 +286,7 @@ export default function FreeformSessionScreen({
               testID={`freeform-add-exercise-option-${exercise.id}`}
               style={styles.optionRow}
               onPress={() => handleAddExercise(exercise)}
+              accessibilityRole="button"
             >
               <Text style={styles.optionText}>{exercise.name}</Text>
             </Pressable>
@@ -292,6 +299,7 @@ export default function FreeformSessionScreen({
         style={styles.button}
         disabled={completing}
         onPress={handleCompleteSession}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>{completing ? 'Completing…' : 'Complete session'}</Text>
       </Pressable>

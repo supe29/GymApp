@@ -139,7 +139,7 @@ export default function NutritionTargetsScreen({
           No nutrition targets yet
         </Text>
         {error ? (
-          <Text testID="nutrition-error" style={styles.error}>
+          <Text testID="nutrition-error" style={styles.error} accessibilityRole="alert">
             {error}
           </Text>
         ) : null}
@@ -148,6 +148,7 @@ export default function NutritionTargetsScreen({
           style={styles.button}
           disabled={generating}
           onPress={handleGenerateInitial}
+          accessibilityRole="button"
         >
           <Text style={styles.buttonText}>{generating ? 'Generating…' : 'Generate my targets'}</Text>
         </Pressable>
@@ -168,7 +169,7 @@ export default function NutritionTargetsScreen({
         </Text>
       ) : null}
       {warningBanner ? (
-        <Text testID="nutrition-unsafe-warning" style={styles.warning}>
+        <Text testID="nutrition-unsafe-warning" style={styles.warning} accessibilityRole="alert">
           {warningBanner}
         </Text>
       ) : null}
@@ -195,6 +196,7 @@ export default function NutritionTargetsScreen({
         style={styles.button}
         disabled={previewLoading}
         onPress={handleRequestRegenerate}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>{previewLoading ? 'Checking…' : 'Regenerate targets'}</Text>
       </Pressable>

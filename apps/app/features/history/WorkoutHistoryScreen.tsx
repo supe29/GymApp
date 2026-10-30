@@ -46,7 +46,7 @@ export default function WorkoutHistoryScreen({ client = getSupabaseClient(), use
   if (error) {
     return (
       <View style={styles.container}>
-        <Text testID="history-error" style={styles.error}>
+        <Text testID="history-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       </View>

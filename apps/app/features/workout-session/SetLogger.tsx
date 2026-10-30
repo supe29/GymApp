@@ -88,6 +88,8 @@ export default function SetLogger({
             <Pressable
               testID={`set-logger-${exerciseId}-set-${set.setIndex}-retry`}
               onPress={() => onRetrySet(set.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Retry syncing set ${set.setIndex}`}
             >
               <Text style={styles.retryText}>Retry</Text>
             </Pressable>
@@ -98,13 +100,25 @@ export default function SetLogger({
       <View style={styles.stepperRow}>
         <Text style={styles.stepperLabel}>Weight (kg)</Text>
         <View style={styles.stepperControls}>
-          <Pressable testID={`set-logger-${exerciseId}-weight-dec`} style={styles.stepperButton} onPress={() => adjustWeight(-WEIGHT_STEP_KG)}>
+          <Pressable
+            testID={`set-logger-${exerciseId}-weight-dec`}
+            style={styles.stepperButton}
+            onPress={() => adjustWeight(-WEIGHT_STEP_KG)}
+            accessibilityRole="button"
+            accessibilityLabel="Decrease weight"
+          >
             <Text style={styles.stepperButtonText}>-</Text>
           </Pressable>
           <Text testID={`set-logger-${exerciseId}-weight-value`} style={styles.stepperValue}>
             {weightKg ?? 0}
           </Text>
-          <Pressable testID={`set-logger-${exerciseId}-weight-inc`} style={styles.stepperButton} onPress={() => adjustWeight(WEIGHT_STEP_KG)}>
+          <Pressable
+            testID={`set-logger-${exerciseId}-weight-inc`}
+            style={styles.stepperButton}
+            onPress={() => adjustWeight(WEIGHT_STEP_KG)}
+            accessibilityRole="button"
+            accessibilityLabel="Increase weight"
+          >
             <Text style={styles.stepperButtonText}>+</Text>
           </Pressable>
         </View>
@@ -113,13 +127,25 @@ export default function SetLogger({
       <View style={styles.stepperRow}>
         <Text style={styles.stepperLabel}>Reps</Text>
         <View style={styles.stepperControls}>
-          <Pressable testID={`set-logger-${exerciseId}-reps-dec`} style={styles.stepperButton} onPress={() => adjustReps(-REPS_STEP)}>
+          <Pressable
+            testID={`set-logger-${exerciseId}-reps-dec`}
+            style={styles.stepperButton}
+            onPress={() => adjustReps(-REPS_STEP)}
+            accessibilityRole="button"
+            accessibilityLabel="Decrease reps"
+          >
             <Text style={styles.stepperButtonText}>-</Text>
           </Pressable>
           <Text testID={`set-logger-${exerciseId}-reps-value`} style={styles.stepperValue}>
             {reps ?? 0}
           </Text>
-          <Pressable testID={`set-logger-${exerciseId}-reps-inc`} style={styles.stepperButton} onPress={() => adjustReps(REPS_STEP)}>
+          <Pressable
+            testID={`set-logger-${exerciseId}-reps-inc`}
+            style={styles.stepperButton}
+            onPress={() => adjustReps(REPS_STEP)}
+            accessibilityRole="button"
+            accessibilityLabel="Increase reps"
+          >
             <Text style={styles.stepperButtonText}>+</Text>
           </Pressable>
         </View>
@@ -128,19 +154,31 @@ export default function SetLogger({
       <View style={styles.stepperRow}>
         <Text style={styles.stepperLabel}>RPE (optional)</Text>
         <View style={styles.stepperControls}>
-          <Pressable testID={`set-logger-${exerciseId}-rpe-dec`} style={styles.stepperButton} onPress={() => adjustRpe(-RPE_STEP)}>
+          <Pressable
+            testID={`set-logger-${exerciseId}-rpe-dec`}
+            style={styles.stepperButton}
+            onPress={() => adjustRpe(-RPE_STEP)}
+            accessibilityRole="button"
+            accessibilityLabel="Decrease RPE"
+          >
             <Text style={styles.stepperButtonText}>-</Text>
           </Pressable>
           <Text testID={`set-logger-${exerciseId}-rpe-value`} style={styles.stepperValue}>
             {rpe ?? '-'}
           </Text>
-          <Pressable testID={`set-logger-${exerciseId}-rpe-inc`} style={styles.stepperButton} onPress={() => adjustRpe(RPE_STEP)}>
+          <Pressable
+            testID={`set-logger-${exerciseId}-rpe-inc`}
+            style={styles.stepperButton}
+            onPress={() => adjustRpe(RPE_STEP)}
+            accessibilityRole="button"
+            accessibilityLabel="Increase RPE"
+          >
             <Text style={styles.stepperButtonText}>+</Text>
           </Pressable>
         </View>
       </View>
 
-      <Pressable testID={`set-logger-${exerciseId}-log-button`} style={styles.logButton} onPress={handleLogSet}>
+      <Pressable testID={`set-logger-${exerciseId}-log-button`} style={styles.logButton} onPress={handleLogSet} accessibilityRole="button">
         <Text style={styles.logButtonText}>Log set</Text>
       </Pressable>
     </View>

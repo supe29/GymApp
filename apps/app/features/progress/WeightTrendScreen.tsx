@@ -94,7 +94,7 @@ export default function WeightTrendScreen({ client, userId }: WeightTrendScreenP
       <Text style={styles.title}>Weight trend</Text>
 
       {error ? (
-        <Text testID="weight-trend-error" style={styles.error}>
+        <Text testID="weight-trend-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -110,7 +110,13 @@ export default function WeightTrendScreen({ client, userId }: WeightTrendScreenP
       ) : entries.length === 1 ? (
         <Text testID="weight-trend-chart-pending">Log one more weight entry to see a trend chart.</Text>
       ) : (
-        <Svg testID="weight-trend-chart" width={CHART_WIDTH} height={CHART_HEIGHT}>
+        <Svg
+          testID="weight-trend-chart"
+          width={CHART_WIDTH}
+          height={CHART_HEIGHT}
+          accessible
+          accessibilityLabel={`Weight trend chart. ${entries.length} entries, ranging from ${Math.round(min)} to ${Math.round(max)} ${unitPreference === 'imperial' ? 'lb' : 'kg'}. See the list below for exact values.`}
+        >
           <Polyline
             testID="weight-trend-chart-line"
             points={points.map((p) => `${p.x},${p.y}`).join(' ')}
@@ -130,13 +136,18 @@ export default function WeightTrendScreen({ client, userId }: WeightTrendScreenP
             <Text style={styles.entryValue}>{formatWeight(entry.weightKg, unitPreference)}</Text>
             <Text style={styles.entryDate}>{formatDate(entry.measuredAt)}</Text>
           </View>
-          <Pressable testID={`weight-entry-${entry.id}-delete`} onPress={() => handleDelete(entry.id)}>
+          <Pressable
+            testID={`weight-entry-${entry.id}-delete`}
+            onPress={() => handleDelete(entry.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove weight entry from ${formatDate(entry.measuredAt)}`}
+          >
             <Text style={styles.deleteText}>Remove</Text>
           </Pressable>
         </View>
       ))}
 
-      <Pressable testID="weight-trend-log-button" style={styles.logButton} onPress={() => setShowLogModal(true)}>
+      <Pressable testID="weight-trend-log-button" style={styles.logButton} onPress={() => setShowLogModal(true)} accessibilityRole="button">
         <Text style={styles.logButtonText}>Log weight</Text>
       </Pressable>
     </ScrollView>

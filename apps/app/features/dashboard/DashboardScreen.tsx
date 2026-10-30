@@ -109,6 +109,7 @@ export default function DashboardScreen({
             testID="dashboard-start-session"
             style={styles.button}
             onPress={() => onStartSession?.(nextSession.id)}
+            accessibilityRole="button"
           >
             <Text style={styles.buttonText}>Start session</Text>
           </Pressable>
@@ -137,19 +138,19 @@ export default function DashboardScreen({
       ) : null}
 
       <View style={styles.quickActions}>
-        <Pressable testID="dashboard-quick-log-food" style={styles.quickButton} onPress={onLogFood}>
+        <Pressable testID="dashboard-quick-log-food" style={styles.quickButton} onPress={onLogFood} accessibilityRole="button">
           <Text style={styles.quickButtonText}>Log food</Text>
         </Pressable>
-        <Pressable testID="dashboard-quick-log-weight" style={styles.quickButton} onPress={onLogWeight}>
+        <Pressable testID="dashboard-quick-log-weight" style={styles.quickButton} onPress={onLogWeight} accessibilityRole="button">
           <Text style={styles.quickButtonText}>Log weight</Text>
         </Pressable>
-        <Pressable testID="dashboard-quick-start-freeform" style={styles.quickButton} onPress={onStartFreeform}>
+        <Pressable testID="dashboard-quick-start-freeform" style={styles.quickButton} onPress={onStartFreeform} accessibilityRole="button">
           <Text style={styles.quickButtonText}>Freeform workout</Text>
         </Pressable>
-        <Pressable testID="dashboard-quick-view-history" style={styles.quickButton} onPress={onViewHistory}>
+        <Pressable testID="dashboard-quick-view-history" style={styles.quickButton} onPress={onViewHistory} accessibilityRole="button">
           <Text style={styles.quickButtonText}>History</Text>
         </Pressable>
-        <Pressable testID="dashboard-quick-browse-muscles" style={styles.quickButton} onPress={onBrowseMuscles}>
+        <Pressable testID="dashboard-quick-browse-muscles" style={styles.quickButton} onPress={onBrowseMuscles} accessibilityRole="button">
           <Text style={styles.quickButtonText}>Browse muscles</Text>
         </Pressable>
       </View>

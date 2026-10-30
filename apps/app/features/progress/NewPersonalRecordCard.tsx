@@ -18,7 +18,11 @@ export default function NewPersonalRecordCard({
   unitPreference,
 }: NewPersonalRecordCardProps) {
   return (
-    <View style={styles.container} testID={`new-pr-card-${exerciseName}-${repCount}`}>
+    <View
+      style={styles.container}
+      testID={`new-pr-card-${exerciseName}-${repCount}`}
+      accessibilityRole="alert"
+    >
       <Text style={styles.badge}>New Personal Record!</Text>
       <Text style={styles.title}>{exerciseName}</Text>
       <Text style={styles.detail}>

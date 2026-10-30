@@ -1,15 +1,22 @@
 {
   "expo": {
-    "name": "app",
-    "slug": "app",
+    "name": "AI Fitness Coach",
+    "slug": "ai-fitness-coach",
+    "description": "Personalized workout and nutrition plans, an interactive 3D muscle model, and unified workout/food logging in one app — no more juggling separate gym, calorie-tracking, and diet apps.",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "primaryColor": "#111111",
+    "backgroundColor": "#E6F4FE",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aifitnesscoach.app",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.aifitnesscoach.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

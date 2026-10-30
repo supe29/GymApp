@@ -18,7 +18,11 @@ export default function OnboardingProgressIndicator({
       <Text testID="onboarding-progress-text" style={styles.text}>
         Step {step} of {total}: {label}
       </Text>
-      <View style={styles.track}>
+      <View
+        style={styles.track}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: total, now: step }}
+      >
         <View
           testID="onboarding-progress-fill"
           style={[styles.fill, { width: `${fraction * 100}%` }]}

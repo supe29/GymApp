@@ -77,6 +77,8 @@ export default function MuscleExplorerScreen({
           testID="muscle-explorer-toggle-3d"
           style={[styles.toggleButton, viewMode === '3d' && styles.toggleButtonActive]}
           onPress={() => setViewMode('3d')}
+          accessibilityRole="button"
+          accessibilityState={{ selected: viewMode === '3d' }}
         >
           <Text style={styles.toggleText}>3D view</Text>
         </Pressable>
@@ -84,6 +86,9 @@ export default function MuscleExplorerScreen({
           testID="muscle-explorer-toggle-list"
           style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
           onPress={() => setViewMode('list')}
+          accessibilityRole="button"
+          accessibilityLabel="List view (non-visual alternative to the 3D model)"
+          accessibilityState={{ selected: viewMode === 'list' }}
         >
           <Text style={styles.toggleText}>List view</Text>
         </Pressable>
@@ -97,6 +102,7 @@ export default function MuscleExplorerScreen({
               testID="muscle-explorer-reset"
               style={styles.resetButton}
               onPress={() => bodyModelRef.current?.reset()}
+              accessibilityRole="button"
             >
               <Text style={styles.toggleText}>Reset view</Text>
             </Pressable>
@@ -124,6 +130,7 @@ export default function MuscleExplorerScreen({
                 testID={`muscle-explorer-exercise-${item.id}`}
                 style={styles.exerciseRow}
                 onPress={() => onSelectExercise?.(item)}
+                accessibilityRole="button"
               >
                 <Text>{item.name}</Text>
               </Pressable>

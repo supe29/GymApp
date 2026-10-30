@@ -62,13 +62,13 @@ export default function RestTimer({ durationSeconds = DEFAULT_DURATION_SECONDS, 
         {formatTime(remainingSeconds)}
       </Text>
       <View style={styles.controls}>
-        <Pressable testID="rest-timer-start" style={styles.button} onPress={handleStart}>
+        <Pressable testID="rest-timer-start" style={styles.button} onPress={handleStart} accessibilityRole="button" accessibilityState={{ disabled: running }}>
           <Text style={styles.buttonText}>{running ? 'Running' : 'Start'}</Text>
         </Pressable>
-        <Pressable testID="rest-timer-pause" style={[styles.button, styles.buttonSecondary]} onPress={handlePause}>
+        <Pressable testID="rest-timer-pause" style={[styles.button, styles.buttonSecondary]} onPress={handlePause} accessibilityRole="button">
           <Text style={styles.buttonText}>Pause</Text>
         </Pressable>
-        <Pressable testID="rest-timer-reset" style={[styles.button, styles.buttonSecondary]} onPress={handleReset}>
+        <Pressable testID="rest-timer-reset" style={[styles.button, styles.buttonSecondary]} onPress={handleReset} accessibilityRole="button">
           <Text style={styles.buttonText}>Reset</Text>
         </Pressable>
       </View>

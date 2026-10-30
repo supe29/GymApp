@@ -73,6 +73,8 @@ function Chip({
       testID={testID}
       style={[styles.chip, selected && styles.chipSelected]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
@@ -179,7 +181,7 @@ export default function ProfileSetupFlow({
       />
 
       {error ? (
-        <Text testID="onboarding-error" style={styles.error}>
+        <Text testID="onboarding-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -193,6 +195,7 @@ export default function ProfileSetupFlow({
             keyboardType="number-pad"
             value={draft.age}
             onChangeText={(age) => setDraft((d) => ({ ...d, age }))}
+            accessibilityLabel="Age"
           />
           <Text style={styles.label}>Height (cm)</Text>
           <TextInput
@@ -201,6 +204,7 @@ export default function ProfileSetupFlow({
             keyboardType="decimal-pad"
             value={draft.heightCm}
             onChangeText={(heightCm) => setDraft((d) => ({ ...d, heightCm }))}
+            accessibilityLabel="Height in centimeters"
           />
           <Text style={styles.label}>Weight (kg)</Text>
           <TextInput
@@ -209,6 +213,7 @@ export default function ProfileSetupFlow({
             keyboardType="decimal-pad"
             value={draft.weightKg}
             onChangeText={(weightKg) => setDraft((d) => ({ ...d, weightKg }))}
+            accessibilityLabel="Weight in kilograms"
           />
           <Text style={styles.label}>Biological sex</Text>
           <View style={styles.chipRow}>
@@ -280,7 +285,7 @@ export default function ProfileSetupFlow({
       ) : (
         <View style={styles.navRow}>
           {step > 0 ? (
-            <Pressable testID="onboarding-back" style={styles.navButton} onPress={goBack}>
+            <Pressable testID="onboarding-back" style={styles.navButton} onPress={goBack} accessibilityRole="button">
               <Text style={styles.navButtonText}>Back</Text>
             </Pressable>
           ) : null}
@@ -289,6 +294,7 @@ export default function ProfileSetupFlow({
             style={styles.navButton}
             disabled={submitting}
             onPress={goNext}
+            accessibilityRole="button"
           >
             <Text style={styles.navButtonText}>Next</Text>
           </Pressable>

@@ -436,7 +436,7 @@ export default function SessionScreen({
             onOverride={(weightKg, reps) => handleOverrideSuggestion(card.suggestionId, weightKg, reps)}
           />
         ))}
-        <Pressable testID="session-suggestions-done" style={styles.button} onPress={handleDoneReviewingSuggestions}>
+        <Pressable testID="session-suggestions-done" style={styles.button} onPress={handleDoneReviewingSuggestions} accessibilityRole="button">
           <Text style={styles.buttonText}>Done</Text>
         </Pressable>
       </ScrollView>
@@ -448,7 +448,7 @@ export default function SessionScreen({
   return (
     <ScrollView style={styles.container} testID="session-screen">
       {error ? (
-        <Text testID="session-screen-error" style={styles.error}>
+        <Text testID="session-screen-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -470,13 +470,15 @@ export default function SessionScreen({
           )}
 
           <View style={styles.slotActions}>
-            <Pressable testID={`session-slot-${slot.id}-skip`} onPress={() => handleSkip(slot.id)}>
+            <Pressable testID={`session-slot-${slot.id}-skip`} onPress={() => handleSkip(slot.id)} accessibilityRole="button">
               <Text style={styles.actionText}>{slot.skipped ? 'Unskip' : 'Skip'}</Text>
             </Pressable>
             {!slot.skipped ? (
               <Pressable
                 testID={`session-slot-${slot.id}-substitute-toggle`}
                 onPress={() => toggleSubstituteOptions(slot.id)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: slot.showSubstituteOptions }}
               >
                 <Text style={styles.actionText}>Substitute</Text>
               </Pressable>
@@ -491,6 +493,7 @@ export default function SessionScreen({
                   testID={`session-slot-${slot.id}-substitute-option-${candidate.id}`}
                   style={styles.optionRow}
                   onPress={() => handleSubstitute(slot.id, candidate)}
+                  accessibilityRole="button"
                 >
                   <Text style={styles.optionText}>{candidate.name}</Text>
                 </Pressable>
@@ -502,7 +505,13 @@ export default function SessionScreen({
 
       <RestTimer />
 
-      <Pressable testID="session-add-exercise-toggle" style={styles.button} onPress={() => setShowAddExercise((v) => !v)}>
+      <Pressable
+        testID="session-add-exercise-toggle"
+        style={styles.button}
+        onPress={() => setShowAddExercise((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showAddExercise }}
+      >
         <Text style={styles.buttonText}>Add exercise</Text>
       </Pressable>
       {showAddExercise ? (
@@ -513,6 +522,7 @@ export default function SessionScreen({
               testID={`session-add-exercise-option-${exercise.id}`}
               style={styles.optionRow}
               onPress={() => handleAddExercise(exercise)}
+              accessibilityRole="button"
             >
               <Text style={styles.optionText}>{exercise.name}</Text>
             </Pressable>
@@ -525,6 +535,7 @@ export default function SessionScreen({
         style={styles.button}
         disabled={completing}
         onPress={handleCompleteSession}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>{completing ? 'Completing…' : 'Complete session'}</Text>
       </Pressable>
@@ -538,7 +549,7 @@ const styles = StyleSheet.create({
   error: { color: '#b00020', marginBottom: 12 },
   slotContainer: { marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 12 },
   skippedRow: { paddingVertical: 10 },
-  skippedText: { color: '#888', fontStyle: 'italic' },
+  skippedText: { color: '#666', fontStyle: 'italic' },
   slotActions: { flexDirection: 'row', gap: 16, marginTop: 8 },
   actionText: { color: '#111', fontWeight: '600', textDecorationLine: 'underline' },
   optionRow: { paddingVertical: 8 },

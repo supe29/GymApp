@@ -32,6 +32,9 @@ export default function DisclaimerScreen({ onAcknowledge }: DisclaimerScreenProp
         testID="disclaimer-checkbox"
         style={styles.checkboxRow}
         onPress={() => setAcknowledged((prev) => !prev)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: acknowledged }}
+        accessibilityLabel="I understand this is not medical advice and I should consult a professional if needed."
       >
         <View style={[styles.checkbox, acknowledged && styles.checkboxChecked]} />
         <Text style={styles.checkboxLabel}>
@@ -44,6 +47,8 @@ export default function DisclaimerScreen({ onAcknowledge }: DisclaimerScreenProp
         style={[styles.button, !acknowledged && styles.buttonDisabled]}
         disabled={!acknowledged}
         onPress={onAcknowledge}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !acknowledged }}
       >
         <Text style={styles.buttonText}>Continue</Text>
       </Pressable>

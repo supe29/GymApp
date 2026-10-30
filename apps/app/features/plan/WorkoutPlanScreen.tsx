@@ -140,7 +140,7 @@ export default function WorkoutPlanScreen({
           No workout plan yet
         </Text>
         {error ? (
-          <Text testID="plan-error" style={styles.error}>
+          <Text testID="plan-error" style={styles.error} accessibilityRole="alert">
             {error}
           </Text>
         ) : null}
@@ -149,6 +149,7 @@ export default function WorkoutPlanScreen({
           style={styles.button}
           disabled={generating}
           onPress={handleGenerateInitial}
+          accessibilityRole="button"
         >
           <Text style={styles.buttonText}>{generating ? 'Generating…' : 'Generate my plan'}</Text>
         </Pressable>
@@ -181,6 +182,9 @@ export default function WorkoutPlanScreen({
               <Pressable
                 testID={`plan-exercise-why-toggle-${ex.exerciseId}`}
                 onPress={() => toggleWhy(ex.exerciseId)}
+                accessibilityRole="button"
+                accessibilityLabel={`Why was ${ex.exerciseName} prescribed?`}
+                accessibilityState={{ expanded: expandedExerciseIds.has(ex.exerciseId) }}
               >
                 <Text style={styles.whyLink}>Why?</Text>
               </Pressable>
@@ -199,6 +203,7 @@ export default function WorkoutPlanScreen({
         style={styles.button}
         disabled={previewLoading}
         onPress={handleRequestRegenerate}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>{previewLoading ? 'Checking…' : 'Regenerate plan'}</Text>
       </Pressable>
@@ -215,7 +220,7 @@ const styles = StyleSheet.create({
   exerciseRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
   exerciseName: { fontSize: 14 },
   whyLink: { fontSize: 12, color: '#555', marginTop: 2 },
-  whyText: { fontSize: 12, color: '#777', marginTop: 4 },
+  whyText: { fontSize: 12, color: '#666', marginTop: 4 },
   button: {
     backgroundColor: '#111',
     borderRadius: 8,

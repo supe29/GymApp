@@ -62,6 +62,7 @@ export default function SignInScreen({
         testID="signin-email"
         style={styles.input}
         placeholder="Email"
+        accessibilityLabel="Email"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -71,13 +72,14 @@ export default function SignInScreen({
         testID="signin-password"
         style={styles.input}
         placeholder="Password"
+        accessibilityLabel="Password"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
 
       {error ? (
-        <Text testID="signin-error" style={styles.error}>
+        <Text testID="signin-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -87,6 +89,7 @@ export default function SignInScreen({
         style={styles.button}
         disabled={submitting}
         onPress={handleEmailSignIn}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Sign in</Text>
       </Pressable>
@@ -96,6 +99,7 @@ export default function SignInScreen({
         style={styles.button}
         disabled={submitting}
         onPress={() => handleOAuth('google')}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Continue with Google</Text>
       </Pressable>
@@ -105,15 +109,20 @@ export default function SignInScreen({
         style={styles.button}
         disabled={submitting}
         onPress={() => handleOAuth('apple')}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Continue with Apple</Text>
       </Pressable>
 
-      <Pressable testID="signin-goto-forgot-password" onPress={onNavigateToForgotPassword}>
+      <Pressable
+        testID="signin-goto-forgot-password"
+        onPress={onNavigateToForgotPassword}
+        accessibilityRole="link"
+      >
         <Text style={styles.link}>Forgot password?</Text>
       </Pressable>
 
-      <Pressable testID="signin-goto-signup" onPress={onNavigateToSignUp}>
+      <Pressable testID="signin-goto-signup" onPress={onNavigateToSignUp} accessibilityRole="link">
         <Text style={styles.link}>New here? Create an account</Text>
       </Pressable>
     </View>

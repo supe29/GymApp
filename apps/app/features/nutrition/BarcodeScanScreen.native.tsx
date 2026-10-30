@@ -45,11 +45,11 @@ export default function BarcodeScanScreen({ onBarcodeScanned, onManualEntry }: B
           Camera access is needed to scan a barcode. You can still log this food by entering the barcode manually.
         </Text>
         {permission.canAskAgain ? (
-          <Pressable testID="barcode-scan-request-permission" style={styles.button} onPress={requestPermission}>
+          <Pressable testID="barcode-scan-request-permission" style={styles.button} onPress={requestPermission} accessibilityRole="button">
             <Text style={styles.buttonText}>Allow camera access</Text>
           </Pressable>
         ) : null}
-        <Pressable testID="barcode-scan-manual-entry-button" style={styles.button} onPress={onManualEntry}>
+        <Pressable testID="barcode-scan-manual-entry-button" style={styles.button} onPress={onManualEntry} accessibilityRole="button">
           <Text style={styles.buttonText}>Enter barcode manually</Text>
         </Pressable>
       </View>
@@ -65,7 +65,7 @@ export default function BarcodeScanScreen({ onBarcodeScanned, onManualEntry }: B
         onBarcodeScanned={handleScanned}
       />
       <Text testID="barcode-scan-scanning-message">Point your camera at a barcode…</Text>
-      <Pressable testID="barcode-scan-manual-entry-button" style={styles.button} onPress={onManualEntry}>
+      <Pressable testID="barcode-scan-manual-entry-button" style={styles.button} onPress={onManualEntry} accessibilityRole="button">
         <Text style={styles.buttonText}>Enter barcode manually instead</Text>
       </Pressable>
     </View>

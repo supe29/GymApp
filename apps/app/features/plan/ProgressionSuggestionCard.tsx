@@ -77,6 +77,8 @@ export default function ProgressionSuggestionCard({
                   testID={`progression-card-${exerciseId}-override-weight-dec`}
                   style={styles.stepperButton}
                   onPress={() => setOverrideWeightKg((v) => Math.max(0, v - WEIGHT_STEP_KG))}
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease override weight"
                 >
                   <Text style={styles.stepperButtonText}>-</Text>
                 </Pressable>
@@ -87,6 +89,8 @@ export default function ProgressionSuggestionCard({
                   testID={`progression-card-${exerciseId}-override-weight-inc`}
                   style={styles.stepperButton}
                   onPress={() => setOverrideWeightKg((v) => v + WEIGHT_STEP_KG)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase override weight"
                 >
                   <Text style={styles.stepperButtonText}>+</Text>
                 </Pressable>
@@ -99,6 +103,8 @@ export default function ProgressionSuggestionCard({
                   testID={`progression-card-${exerciseId}-override-reps-dec`}
                   style={styles.stepperButton}
                   onPress={() => setOverrideReps((v) => Math.max(0, v - REPS_STEP))}
+                  accessibilityRole="button"
+                  accessibilityLabel="Decrease override reps"
                 >
                   <Text style={styles.stepperButtonText}>-</Text>
                 </Pressable>
@@ -109,6 +115,8 @@ export default function ProgressionSuggestionCard({
                   testID={`progression-card-${exerciseId}-override-reps-inc`}
                   style={styles.stepperButton}
                   onPress={() => setOverrideReps((v) => v + REPS_STEP)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Increase override reps"
                 >
                   <Text style={styles.stepperButtonText}>+</Text>
                 </Pressable>
@@ -118,19 +126,21 @@ export default function ProgressionSuggestionCard({
               testID={`progression-card-${exerciseId}-override-confirm`}
               style={styles.button}
               onPress={handleConfirmOverride}
+              accessibilityRole="button"
             >
               <Text style={styles.buttonText}>Confirm override</Text>
             </Pressable>
           </View>
         ) : (
           <View style={styles.actionsRow}>
-            <Pressable testID={`progression-card-${exerciseId}-accept`} style={styles.button} onPress={onAccept}>
+            <Pressable testID={`progression-card-${exerciseId}-accept`} style={styles.button} onPress={onAccept} accessibilityRole="button">
               <Text style={styles.buttonText}>Accept</Text>
             </Pressable>
             <Pressable
               testID={`progression-card-${exerciseId}-decline`}
               style={[styles.button, styles.buttonSecondary]}
               onPress={onDecline}
+              accessibilityRole="button"
             >
               <Text style={styles.buttonText}>Decline</Text>
             </Pressable>
@@ -138,6 +148,7 @@ export default function ProgressionSuggestionCard({
               testID={`progression-card-${exerciseId}-override-toggle`}
               style={[styles.button, styles.buttonSecondary]}
               onPress={() => setShowOverride(true)}
+              accessibilityRole="button"
             >
               <Text style={styles.buttonText}>Override</Text>
             </Pressable>

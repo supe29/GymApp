@@ -17,7 +17,12 @@ export default function EmptyState({ title, message, actionLabel, onAction, test
       </Text>
       <Text style={styles.message}>{message}</Text>
       {actionLabel && onAction ? (
-        <Pressable testID={testID ? `${testID}-action` : 'empty-state-action'} style={styles.button} onPress={onAction}>
+        <Pressable
+          testID={testID ? `${testID}-action` : 'empty-state-action'}
+          style={styles.button}
+          onPress={onAction}
+          accessibilityRole="button"
+        >
           <Text style={styles.buttonText}>{actionLabel}</Text>
         </Pressable>
       ) : null}

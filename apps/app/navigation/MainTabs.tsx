@@ -23,7 +23,7 @@ export interface MainTabsProps {
 
 function HeaderLinkButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={{ paddingHorizontal: 12 }}>
+    <Pressable onPress={onPress} style={{ paddingHorizontal: 12 }} accessibilityRole="button">
       <Text style={{ color: '#111', fontWeight: '600' }}>{label}</Text>
     </Pressable>
   );

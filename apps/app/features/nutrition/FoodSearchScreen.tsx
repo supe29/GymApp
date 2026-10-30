@@ -40,16 +40,23 @@ export default function FoodSearchScreen({ client, onSelectFood, onCancel }: Foo
           value={query}
           onChangeText={setQuery}
           placeholder="e.g. banana"
+          accessibilityLabel="Food search query"
           onSubmitEditing={handleSearch}
           returnKeyType="search"
         />
-        <Pressable testID="food-search-button" style={styles.searchButton} disabled={searching} onPress={handleSearch}>
+        <Pressable
+          testID="food-search-button"
+          style={styles.searchButton}
+          disabled={searching}
+          onPress={handleSearch}
+          accessibilityRole="button"
+        >
           <Text style={styles.searchButtonText}>{searching ? '…' : 'Search'}</Text>
         </Pressable>
       </View>
 
       {error ? (
-        <Text testID="food-search-error" style={styles.error}>
+        <Text testID="food-search-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -63,7 +70,12 @@ export default function FoodSearchScreen({ client, onSelectFood, onCancel }: Foo
         data={results}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Pressable testID={`food-search-result-${item.id}`} style={styles.resultRow} onPress={() => onSelectFood(item)}>
+          <Pressable
+            testID={`food-search-result-${item.id}`}
+            style={styles.resultRow}
+            onPress={() => onSelectFood(item)}
+            accessibilityRole="button"
+          >
             <Text style={styles.resultName}>{item.name}</Text>
             <Text style={styles.resultMeta}>
               {item.portionDescription} · {item.caloriesPerPortion} kcal
@@ -72,7 +84,7 @@ export default function FoodSearchScreen({ client, onSelectFood, onCancel }: Foo
         )}
       />
 
-      <Pressable testID="food-search-cancel" style={styles.cancelButton} onPress={onCancel}>
+      <Pressable testID="food-search-cancel" style={styles.cancelButton} onPress={onCancel} accessibilityRole="button">
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </Pressable>
     </View>

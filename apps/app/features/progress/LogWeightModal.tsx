@@ -30,20 +30,32 @@ export default function LogWeightModal({ unitPreference, onSubmit, onCancel }: L
     <View style={styles.container} testID="log-weight-modal">
       <Text style={styles.title}>Log weight</Text>
       <View style={styles.stepperRow}>
-        <Pressable testID="log-weight-dec" style={styles.stepperButton} onPress={() => adjust(-(isImperial ? STEP_LB : STEP_KG))}>
+        <Pressable
+          testID="log-weight-dec"
+          style={styles.stepperButton}
+          onPress={() => adjust(-(isImperial ? STEP_LB : STEP_KG))}
+          accessibilityRole="button"
+          accessibilityLabel="Decrease weight"
+        >
           <Text style={styles.stepperButtonText}>-</Text>
         </Pressable>
         <Text testID="log-weight-value" style={styles.stepperValue}>
           {displayValue} {isImperial ? 'lb' : 'kg'}
         </Text>
-        <Pressable testID="log-weight-inc" style={styles.stepperButton} onPress={() => adjust(isImperial ? STEP_LB : STEP_KG)}>
+        <Pressable
+          testID="log-weight-inc"
+          style={styles.stepperButton}
+          onPress={() => adjust(isImperial ? STEP_LB : STEP_KG)}
+          accessibilityRole="button"
+          accessibilityLabel="Increase weight"
+        >
           <Text style={styles.stepperButtonText}>+</Text>
         </Pressable>
       </View>
-      <Pressable testID="log-weight-submit" style={styles.submitButton} onPress={handleSubmit}>
+      <Pressable testID="log-weight-submit" style={styles.submitButton} onPress={handleSubmit} accessibilityRole="button">
         <Text style={styles.submitButtonText}>Save</Text>
       </Pressable>
-      <Pressable testID="log-weight-cancel" style={styles.cancelButton} onPress={onCancel}>
+      <Pressable testID="log-weight-cancel" style={styles.cancelButton} onPress={onCancel} accessibilityRole="button">
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </Pressable>
     </View>

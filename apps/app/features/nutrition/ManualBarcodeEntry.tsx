@@ -20,7 +20,7 @@ export default function ManualBarcodeEntry({ notice, onSubmit, onCancel }: Manua
     <View style={styles.container} testID="manual-barcode-entry">
       <Text style={styles.title}>Enter barcode manually</Text>
       {notice ? (
-        <Text testID="manual-barcode-notice" style={styles.notice}>
+        <Text testID="manual-barcode-notice" style={styles.notice} accessibilityRole="alert">
           {notice}
         </Text>
       ) : null}
@@ -30,13 +30,20 @@ export default function ManualBarcodeEntry({ notice, onSubmit, onCancel }: Manua
         value={barcode}
         onChangeText={setBarcode}
         placeholder="e.g. 012345678905"
+        accessibilityLabel="Barcode digits"
         keyboardType="numeric"
         onSubmitEditing={handleSubmit}
       />
-      <Pressable testID="manual-barcode-submit" style={styles.submitButton} disabled={!barcode.trim()} onPress={handleSubmit}>
+      <Pressable
+        testID="manual-barcode-submit"
+        style={styles.submitButton}
+        disabled={!barcode.trim()}
+        onPress={handleSubmit}
+        accessibilityRole="button"
+      >
         <Text style={styles.submitButtonText}>Look up</Text>
       </Pressable>
-      <Pressable testID="manual-barcode-cancel" style={styles.cancelButton} onPress={onCancel}>
+      <Pressable testID="manual-barcode-cancel" style={styles.cancelButton} onPress={onCancel} accessibilityRole="button">
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </Pressable>
     </View>

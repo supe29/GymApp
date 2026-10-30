@@ -62,6 +62,7 @@ export default function SignUpScreen({
         testID="signup-email"
         style={styles.input}
         placeholder="Email"
+        accessibilityLabel="Email"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -71,13 +72,14 @@ export default function SignUpScreen({
         testID="signup-password"
         style={styles.input}
         placeholder="Password"
+        accessibilityLabel="Password"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
 
       {error ? (
-        <Text testID="signup-error" style={styles.error}>
+        <Text testID="signup-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -87,6 +89,7 @@ export default function SignUpScreen({
         style={styles.button}
         disabled={submitting}
         onPress={handleEmailSignUp}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Sign up</Text>
       </Pressable>
@@ -96,6 +99,7 @@ export default function SignUpScreen({
         style={styles.button}
         disabled={submitting}
         onPress={() => handleOAuth('google')}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Continue with Google</Text>
       </Pressable>
@@ -105,17 +109,23 @@ export default function SignUpScreen({
         style={styles.button}
         disabled={submitting}
         onPress={() => handleOAuth('apple')}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Continue with Apple</Text>
       </Pressable>
 
-      <Pressable testID="signup-goto-signin" onPress={onNavigateToSignIn}>
+      <Pressable testID="signup-goto-signin" onPress={onNavigateToSignIn} accessibilityRole="link">
         <Text style={styles.link}>Already have an account? Sign in</Text>
       </Pressable>
 
       <Text style={styles.disclosure}>
         By creating an account, you agree to our{' '}
-        <Text testID="signup-privacy-policy" style={styles.link} onPress={onViewPrivacyPolicy}>
+        <Text
+          testID="signup-privacy-policy"
+          style={styles.link}
+          onPress={onViewPrivacyPolicy}
+          accessibilityRole="link"
+        >
           Privacy Policy
         </Text>
         .

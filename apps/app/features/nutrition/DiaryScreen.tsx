@@ -205,6 +205,8 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
               testID={`diary-meal-slot-${slot}`}
               style={[styles.mealSlotButton, mealSlot === slot && styles.mealSlotButtonActive]}
               onPress={() => setMealSlot(slot)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mealSlot === slot }}
             >
               <Text style={[styles.mealSlotText, mealSlot === slot && styles.mealSlotTextActive]}>
                 {MEAL_SLOT_LABEL[slot]}
@@ -215,27 +217,50 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
 
         <Text style={styles.label}>Portions</Text>
         <View style={styles.stepperRow}>
-          <Pressable testID="diary-portion-dec" style={styles.stepperButton} onPress={() => adjustPortion(-0.5)}>
+          <Pressable
+            testID="diary-portion-dec"
+            style={styles.stepperButton}
+            onPress={() => adjustPortion(-0.5)}
+            accessibilityRole="button"
+            accessibilityLabel="Decrease portions"
+          >
             <Text style={styles.stepperButtonText}>-</Text>
           </Pressable>
           <Text testID="diary-portion-value" style={styles.stepperValue}>
             {portionQuantity}
           </Text>
-          <Pressable testID="diary-portion-inc" style={styles.stepperButton} onPress={() => adjustPortion(0.5)}>
+          <Pressable
+            testID="diary-portion-inc"
+            style={styles.stepperButton}
+            onPress={() => adjustPortion(0.5)}
+            accessibilityRole="button"
+            accessibilityLabel="Increase portions"
+          >
             <Text style={styles.stepperButtonText}>+</Text>
           </Pressable>
         </View>
 
         {error ? (
-          <Text testID="diary-error" style={styles.error}>
+          <Text testID="diary-error" style={styles.error} accessibilityRole="alert">
             {error}
           </Text>
         ) : null}
 
-        <Pressable testID="diary-confirm-log-button" style={styles.logButton} disabled={saving} onPress={handleConfirmLog}>
+        <Pressable
+          testID="diary-confirm-log-button"
+          style={styles.logButton}
+          disabled={saving}
+          onPress={handleConfirmLog}
+          accessibilityRole="button"
+        >
           <Text style={styles.logButtonText}>{saving ? 'Logging…' : 'Log food'}</Text>
         </Pressable>
-        <Pressable testID="diary-confirm-cancel" style={styles.cancelButton} onPress={handleCancelFlow}>
+        <Pressable
+          testID="diary-confirm-cancel"
+          style={styles.cancelButton}
+          onPress={handleCancelFlow}
+          accessibilityRole="button"
+        >
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </Pressable>
       </View>
@@ -250,7 +275,7 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
       <Text style={styles.title}>Today&apos;s diary</Text>
 
       {error ? (
-        <Text testID="diary-error" style={styles.error}>
+        <Text testID="diary-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -285,7 +310,12 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
                     {entry.portionQuantity} × {entry.portionDescription} · {Math.round(entry.caloriesPerPortion * entry.portionQuantity)} kcal
                   </Text>
                 </View>
-                <Pressable testID={`diary-entry-${entry.id}-delete`} onPress={() => handleDeleteEntry(entry.id)}>
+                <Pressable
+                  testID={`diary-entry-${entry.id}-delete`}
+                  onPress={() => handleDeleteEntry(entry.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${entry.foodName} from today's diary`}
+                >
                   <Text style={styles.deleteText}>Remove</Text>
                 </Pressable>
               </View>
@@ -305,10 +335,10 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
       ) : null}
 
       <View style={styles.actionsRow}>
-        <Pressable testID="diary-add-search-button" style={styles.actionButton} onPress={handleStartSearch}>
+        <Pressable testID="diary-add-search-button" style={styles.actionButton} onPress={handleStartSearch} accessibilityRole="button">
           <Text style={styles.actionButtonText}>Search</Text>
         </Pressable>
-        <Pressable testID="diary-add-scan-button" style={styles.actionButton} onPress={handleStartScan}>
+        <Pressable testID="diary-add-scan-button" style={styles.actionButton} onPress={handleStartScan} accessibilityRole="button">
           <Text style={styles.actionButtonText}>Scan barcode</Text>
         </Pressable>
         <Pressable
@@ -318,6 +348,7 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
             setError(null);
             setMode('custom');
           }}
+          accessibilityRole="button"
         >
           <Text style={styles.actionButtonText}>Custom food</Text>
         </Pressable>

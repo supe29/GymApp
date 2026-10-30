@@ -49,6 +49,7 @@ export default function EquipmentChecklist({ items, selectedIds, onChange }: Equ
           testID="equipment-preset-full-gym"
           style={styles.presetButton}
           onPress={applyFullGymPreset}
+          accessibilityRole="button"
         >
           <Text style={styles.presetButtonText}>Full gym</Text>
         </Pressable>
@@ -56,6 +57,7 @@ export default function EquipmentChecklist({ items, selectedIds, onChange }: Equ
           testID="equipment-preset-bodyweight-only"
           style={styles.presetButton}
           onPress={applyBodyweightOnlyPreset}
+          accessibilityRole="button"
         >
           <Text style={styles.presetButtonText}>Bodyweight only</Text>
         </Pressable>
@@ -73,6 +75,9 @@ export default function EquipmentChecklist({ items, selectedIds, onChange }: Equ
                   testID={`equipment-item-${item.id}`}
                   style={styles.itemRow}
                   onPress={() => toggle(item.id)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked }}
+                  accessibilityLabel={item.display_name}
                 >
                   <View style={[styles.checkbox, checked && styles.checkboxChecked]} />
                   <Text style={styles.itemLabel}>{item.display_name}</Text>

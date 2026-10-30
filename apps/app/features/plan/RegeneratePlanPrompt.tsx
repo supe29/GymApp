@@ -126,6 +126,7 @@ export default function RegeneratePlanPrompt({
         style={styles.button}
         disabled={accepting}
         onPress={onAccept}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>{accepting ? 'Regenerating…' : 'Regenerate now'}</Text>
       </Pressable>
@@ -133,6 +134,7 @@ export default function RegeneratePlanPrompt({
         testID="regenerate-decline"
         style={[styles.button, styles.buttonSecondary]}
         onPress={onDecline}
+        accessibilityRole="button"
       >
         <Text style={styles.buttonText}>Not now</Text>
       </Pressable>

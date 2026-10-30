@@ -52,13 +52,20 @@ export default function CustomFoodForm({ client, userId, onCreated, onCancel }: 
       <Text style={styles.title}>Add a custom food</Text>
 
       {error ? (
-        <Text testID="custom-food-error" style={styles.error}>
+        <Text testID="custom-food-error" style={styles.error} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
 
       <Text style={styles.label}>Name</Text>
-      <TextInput testID="custom-food-name" style={styles.input} value={name} onChangeText={setName} placeholder="e.g. Mom's lasagna" />
+      <TextInput
+        testID="custom-food-name"
+        style={styles.input}
+        value={name}
+        onChangeText={setName}
+        placeholder="e.g. Mom's lasagna"
+        accessibilityLabel="Food name"
+      />
 
       <Text style={styles.label}>Portion</Text>
       <TextInput
@@ -67,24 +74,59 @@ export default function CustomFoodForm({ client, userId, onCreated, onCancel }: 
         value={portionDescription}
         onChangeText={setPortionDescription}
         placeholder="e.g. 1 slice"
+        accessibilityLabel="Portion description"
       />
 
       <Text style={styles.label}>Calories</Text>
-      <TextInput testID="custom-food-calories" style={styles.input} value={calories} onChangeText={setCalories} keyboardType="numeric" />
+      <TextInput
+        testID="custom-food-calories"
+        style={styles.input}
+        value={calories}
+        onChangeText={setCalories}
+        keyboardType="numeric"
+        accessibilityLabel="Calories per portion"
+      />
 
       <Text style={styles.label}>Protein (g)</Text>
-      <TextInput testID="custom-food-protein" style={styles.input} value={protein} onChangeText={setProtein} keyboardType="numeric" />
+      <TextInput
+        testID="custom-food-protein"
+        style={styles.input}
+        value={protein}
+        onChangeText={setProtein}
+        keyboardType="numeric"
+        accessibilityLabel="Protein grams per portion"
+      />
 
       <Text style={styles.label}>Carbs (g)</Text>
-      <TextInput testID="custom-food-carbs" style={styles.input} value={carbs} onChangeText={setCarbs} keyboardType="numeric" />
+      <TextInput
+        testID="custom-food-carbs"
+        style={styles.input}
+        value={carbs}
+        onChangeText={setCarbs}
+        keyboardType="numeric"
+        accessibilityLabel="Carbohydrate grams per portion"
+      />
 
       <Text style={styles.label}>Fat (g)</Text>
-      <TextInput testID="custom-food-fat" style={styles.input} value={fat} onChangeText={setFat} keyboardType="numeric" />
+      <TextInput
+        testID="custom-food-fat"
+        style={styles.input}
+        value={fat}
+        onChangeText={setFat}
+        keyboardType="numeric"
+        accessibilityLabel="Fat grams per portion"
+      />
 
-      <Pressable testID="custom-food-submit" style={styles.submitButton} disabled={!canSubmit || saving} onPress={handleSubmit}>
+      <Pressable
+        testID="custom-food-submit"
+        style={styles.submitButton}
+        disabled={!canSubmit || saving}
+        onPress={handleSubmit}
+        accessibilityRole="button"
+      >
         <Text style={styles.submitButtonText}>{saving ? 'Saving…' : 'Save food'}</Text>
       </Pressable>
-      <Pressable testID="custom-food-cancel" style={styles.cancelButton} onPress={onCancel}>
+      <Pressable testID="custom-food-cancel" style={styles.cancelButton} onPress={onCancel} accessibilityRole="button">
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </Pressable>
     </View>

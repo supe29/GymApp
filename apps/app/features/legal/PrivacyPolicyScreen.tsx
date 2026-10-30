@@ -58,7 +58,12 @@ export default function PrivacyPolicyScreen({ onClose }: PrivacyPolicyScreenProp
       </ScrollView>
 
       {onClose ? (
-        <Text testID="privacy-policy-close" style={styles.closeLink} onPress={onClose}>
+        <Text
+          testID="privacy-policy-close"
+          style={styles.closeLink}
+          onPress={onClose}
+          accessibilityRole="button"
+        >
           Close
         </Text>
       ) : null}
