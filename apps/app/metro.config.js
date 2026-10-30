@@ -17,4 +17,9 @@ config.resolver.nodeModulesPaths = [
 ];
 config.resolver.disableHierarchicalLookup = true;
 
+// The 3D muscle model (packages/three-model) loads a vendored glTF binary
+// asset — not in Expo's default assetExts, so GLTFLoader's require() of it
+// would otherwise be treated as a JS module and fail to bundle.
+config.resolver.assetExts = [...config.resolver.assetExts, 'glb', 'gltf'];
+
 module.exports = config;
