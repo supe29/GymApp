@@ -167,6 +167,33 @@ export async function getSetLogsForSession(
 }
 
 /**
+ * FR-8.2/NFR-4: every logged set for the given exercises, across every
+ * session (not just one) — Phase 10's PR derivation needs this to find the
+ * all-time heaviest set per rep-count bucket, unlike `getSetLogsForSession`
+ * which Phase 8's progression evaluation scopes to a single session.
+ * Scoped to the exercises actually touched this session rather than the
+ * user's entire lifetime log, to keep the fetch bounded.
+ */
+export async function getSetLogsForExercises(
+  client: GymSupabaseClient,
+  userId: string,
+  exerciseIds: string[],
+): Promise<ApiResult<PersistedSetLog[]>> {
+  if (exerciseIds.length === 0) {
+    return { data: [], error: null };
+  }
+  const { data, error } = await client
+    .from('set_logs')
+    .select('*')
+    .eq('user_id', userId)
+    .in('exercise_id', exerciseIds);
+  if (error) {
+    return result<PersistedSetLog[]>(null, error);
+  }
+  return { data: (data ?? []).map(toPersistedSetLog), error: null };
+}
+
+/**
  * FR-5.5/AC-8: the user's past sessions (most recent first), each with
  * its set logs and a flat exercise-id -> name lookup, for
  * WorkoutHistoryScreen.tsx. Flat queries + JS-side joins, following

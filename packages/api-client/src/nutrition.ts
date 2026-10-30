@@ -30,6 +30,18 @@ export interface NutritionRegenerationPreview {
   currentTargets: PersistedNutritionTargets | null;
 }
 
+/**
+ * SR-2: generateInitialNutritionTargets's result shape — the persisted row
+ * plus the SR-2 warning computed from the same generation call, before
+ * persistence. Mirrors NutritionRegenerationPreview's
+ * candidateTargets.unsafeConfigurationWarning convention: never persisted
+ * (no DB column exists for it), only carried back to the caller for this
+ * one request/response cycle.
+ */
+export interface InitialNutritionTargets extends PersistedNutritionTargets {
+  unsafeConfigurationWarning: string | null;
+}
+
 function result<T>(data: T | null, error: { message: string } | null): ApiResult<T> {
   return { data, error: error ? error.message : null };
 }
@@ -120,17 +132,30 @@ async function fetchNutritionGeneratorInput(
   };
 }
 
-/** AC-1: the user's first-ever nutrition targets — fetches profile data, generates, and persists. No diff needed (nothing preceded it). */
+/**
+ * AC-1: the user's first-ever nutrition targets — fetches profile data,
+ * generates, and persists. No diff needed (nothing preceded it). Also
+ * surfaces SR-2's unsafe-configuration warning (computed from this same
+ * generation call) so the caller can display it even on first generation,
+ * not only on a later regeneration preview.
+ */
 export async function generateInitialNutritionTargets(
   client: GymSupabaseClient,
   userId: string,
-): Promise<ApiResult<PersistedNutritionTargets>> {
+): Promise<ApiResult<InitialNutritionTargets>> {
   const inputRes = await fetchNutritionGeneratorInput(client, userId);
   if (inputRes.error || !inputRes.data) {
     return { data: null, error: inputRes.error ?? 'Failed to assemble nutrition generator input.' };
   }
   const targets = generateNutritionTargets(inputRes.data);
-  return createNutritionTargets(client, userId, targets);
+  const persistedRes = await createNutritionTargets(client, userId, targets);
+  if (persistedRes.error || !persistedRes.data) {
+    return { data: null, error: persistedRes.error ?? 'Failed to create nutrition targets.' };
+  }
+  return {
+    data: { ...persistedRes.data, unsafeConfigurationWarning: targets.unsafeConfigurationWarning },
+    error: null,
+  };
 }
 
 /**

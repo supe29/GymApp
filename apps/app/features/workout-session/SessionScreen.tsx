@@ -1,8 +1,11 @@
 import {
   completeWorkoutSession,
+  createPersonalRecord,
   createProgressionSuggestion,
   getExercisesWithTags,
   getPlannedSessionById,
+  getProfile,
+  getSetLogsForExercises,
   getSetLogsForSession,
   getUserEquipmentIds,
   listEquipmentItems,
@@ -10,12 +13,21 @@ import {
   updateProgressionSuggestionStatus,
   type GymSupabaseClient,
 } from 'api-client';
-import { evaluateExercisePerformance, filterByEquipmentSubset, filterByMuscleGroup, type ExerciseWithTags, type ProgressionAction } from 'core';
+import {
+  deriveNewPersonalRecords,
+  evaluateExercisePerformance,
+  filterByEquipmentSubset,
+  filterByMuscleGroup,
+  type ExerciseWithTags,
+  type ProgressionAction,
+  type UnitPreference,
+} from 'core';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import ProgressionSuggestionCard from '../plan/ProgressionSuggestionCard';
+import NewPersonalRecordCard from '../progress/NewPersonalRecordCard';
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
 import RestTimer from './RestTimer';
 import SetLogger, { type LoggedSetDisplay } from './SetLogger';
@@ -51,6 +63,14 @@ interface SuggestionCardState {
   suggestedReps: number | null;
   rationale: string;
   status: 'pending' | 'accepted' | 'declined' | 'overridden';
+}
+
+interface NewPrCardState {
+  exerciseId: string;
+  exerciseName: string;
+  repCount: number;
+  weightKg: number;
+  estimatedOneRm: number;
 }
 
 /**
@@ -89,6 +109,8 @@ export default function SessionScreen({
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [suggestionCards, setSuggestionCards] = useState<SuggestionCardState[]>([]);
+  const [newPrCards, setNewPrCards] = useState<NewPrCardState[]>([]);
+  const [unitPreference, setUnitPreference] = useState<UnitPreference>('metric');
   const queueRef = useRef<OfflineQueueHandle | null>(null);
 
   function updateLoggedSet(id: string, patch: Partial<LoggedSetDisplay>) {
@@ -111,14 +133,18 @@ export default function SessionScreen({
 
   useEffect(() => {
     async function load() {
-      const [sessionResult, plannedResult, equipmentIdsResult, equipmentItemsResult, exercisesResult] =
+      const [sessionResult, plannedResult, equipmentIdsResult, equipmentItemsResult, exercisesResult, profileResult] =
         await Promise.all([
           startWorkoutSession(client, userId, plannedSessionId),
           getPlannedSessionById(client, userId, plannedSessionId),
           getUserEquipmentIds(client, userId),
           listEquipmentItems(client),
           getExercisesWithTags(client),
+          getProfile(client, userId),
         ]);
+      if (profileResult.data) {
+        setUnitPreference(profileResult.data.unit_preference);
+      }
 
       if (sessionResult.error || !sessionResult.data) {
         setError(sessionResult.error ?? 'Failed to start workout session.');
@@ -304,12 +330,38 @@ export default function SessionScreen({
       }
     }
 
+    // FR-8.2/AC-11/NFR-4: derive new PRs from the same confirmed logs, for
+    // every non-skipped exercise (including added ones — unlike
+    // progression suggestions, a PR needs no prescription row). Reads
+    // prior history through the same api-client fetch Phase 8 established
+    // for confirmed logs, never a separate/divergent query path.
+    const touchedExerciseIds = [...new Set(slots.filter((slot) => !slot.skipped).map((slot) => slot.exerciseId))];
+    const allLogsRes = await getSetLogsForExercises(client, userId, touchedExerciseIds);
+    const priorLogs = (allLogsRes.data ?? []).filter((log) => log.workoutSessionId !== workoutSessionId);
+    const newPrs = deriveNewPersonalRecords(confirmedLogs, priorLogs);
+
+    const prCards: NewPrCardState[] = [];
+    for (const pr of newPrs) {
+      const createRes = await createPersonalRecord(client, userId, pr);
+      if (createRes.data) {
+        const slot = slots.find((s) => s.exerciseId === pr.exerciseId);
+        prCards.push({
+          exerciseId: pr.exerciseId,
+          exerciseName: slot?.exerciseName ?? pr.exerciseId,
+          repCount: pr.repCount,
+          weightKg: pr.weightKg,
+          estimatedOneRm: pr.estimatedOneRm,
+        });
+      }
+    }
+
     setCompleting(false);
-    if (cards.length === 0) {
+    if (cards.length === 0 && prCards.length === 0) {
       onSessionCompleted?.();
       return;
     }
     setSuggestionCards(cards);
+    setNewPrCards(prCards);
   }
 
   async function handleAcceptSuggestion(suggestionId: string) {
@@ -343,6 +395,7 @@ export default function SessionScreen({
 
   function handleDoneReviewingSuggestions() {
     setSuggestionCards([]);
+    setNewPrCards([]);
     onSessionCompleted?.();
   }
 
@@ -354,10 +407,20 @@ export default function SessionScreen({
     );
   }
 
-  if (suggestionCards.length > 0) {
+  if (suggestionCards.length > 0 || newPrCards.length > 0) {
     return (
       <ScrollView style={styles.container} testID="session-suggestions-review">
         <Text style={styles.title}>Session complete — what&apos;s next</Text>
+        {newPrCards.map((card) => (
+          <NewPersonalRecordCard
+            key={`${card.exerciseId}-${card.repCount}`}
+            exerciseName={card.exerciseName}
+            repCount={card.repCount}
+            weightKg={card.weightKg}
+            estimatedOneRm={card.estimatedOneRm}
+            unitPreference={unitPreference}
+          />
+        ))}
         {suggestionCards.map((card) => (
           <ProgressionSuggestionCard
             key={card.suggestionId}

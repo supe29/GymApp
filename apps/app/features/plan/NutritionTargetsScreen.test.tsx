@@ -21,6 +21,7 @@ const persistedTargets = {
   fatG: 55,
   targetVersion: 1,
   effectiveFrom: '2026-01-01T00:00:00Z',
+  unsafeConfigurationWarning: null as string | null,
 };
 
 const emptyNutritionDiff = {
@@ -84,6 +85,21 @@ describe('NutritionTargetsScreen (FR-3.1/FR-3.2/FR-3.3/FR-2.4/AC-1/NFR-7)', () =
     await waitFor(() => expect(getByTestId('nutrition-targets-calories')).toBeTruthy());
     expect(mockedApiClient.generateInitialNutritionTargets).toHaveBeenCalledWith(fakeClient, 'user-1');
     expect(onTargetsRegenerated).toHaveBeenCalled();
+  });
+
+  test('SR-2: surfaces the unsafe-configuration warning banner after a first-time generation that warrants one', async () => {
+    mockedApiClient.getCurrentNutritionTargets.mockResolvedValue({ data: null, error: null });
+    mockedApiClient.generateInitialNutritionTargets.mockResolvedValue({
+      data: { ...persistedTargets, unsafeConfigurationWarning: 'This configuration is risky.' },
+      error: null,
+    });
+
+    const { getByTestId } = render(<NutritionTargetsScreen client={fakeClient} userId="user-1" />);
+    await waitFor(() => expect(getByTestId('nutrition-generate-button')).toBeTruthy());
+
+    fireEvent.press(getByTestId('nutrition-generate-button'));
+
+    await waitFor(() => expect(getByTestId('nutrition-unsafe-warning')).toBeTruthy());
   });
 
   test('pressing regenerate previews a diff before writing anything', async () => {

@@ -7,3 +7,8 @@ export * from './plans';
 export * from './nutrition';
 export * from './workoutSessions';
 export * from './progressionSuggestions';
+export * from './foodSearch';
+export * from './barcodeLookup';
+export * from './foodLog';
+export * from './weightEntries';
+export * from './personalRecords';

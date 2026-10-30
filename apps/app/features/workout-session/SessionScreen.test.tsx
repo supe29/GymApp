@@ -10,9 +10,12 @@ jest.mock('api-client', () => ({
   getUserEquipmentIds: jest.fn(),
   listEquipmentItems: jest.fn(),
   getExercisesWithTags: jest.fn(),
+  getProfile: jest.fn(),
   getSetLogsForSession: jest.fn(),
+  getSetLogsForExercises: jest.fn(),
   createProgressionSuggestion: jest.fn(),
   updateProgressionSuggestionStatus: jest.fn(),
+  createPersonalRecord: jest.fn(),
 }));
 
 const mockEnqueue = jest.fn();
@@ -82,6 +85,9 @@ async function renderLoaded(onSessionCompleted?: () => void) {
   mockedApiClient.getUserEquipmentIds.mockResolvedValue({ data: [], error: null });
   mockedApiClient.listEquipmentItems.mockResolvedValue({ data: [], error: null });
   mockedApiClient.getExercisesWithTags.mockResolvedValue({ data: exerciseLibrary, error: null });
+  mockedApiClient.getProfile.mockResolvedValue({ data: { unit_preference: 'metric' } as never, error: null });
+  mockedApiClient.getSetLogsForExercises.mockResolvedValue({ data: [], error: null });
+  mockedApiClient.createPersonalRecord.mockResolvedValue({ data: null, error: null });
 
   const utils = render(
     <SessionScreen client={fakeClient} userId="user-1" plannedSessionId="planned-1" onSessionCompleted={onSessionCompleted} />,
@@ -138,6 +144,9 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     mockedApiClient.getUserEquipmentIds.mockResolvedValue({ data: [], error: null });
     mockedApiClient.listEquipmentItems.mockResolvedValue({ data: [], error: null });
     mockedApiClient.getExercisesWithTags.mockResolvedValue({ data: exerciseLibrary, error: null });
+    mockedApiClient.getProfile.mockResolvedValue({ data: { unit_preference: 'metric' } as never, error: null });
+    mockedApiClient.getSetLogsForExercises.mockResolvedValue({ data: [], error: null });
+    mockedApiClient.createPersonalRecord.mockResolvedValue({ data: null, error: null });
     await waitFor(() => expect(queryByTestId('session-screen-loading')).toBeNull());
 
     // Log the first set for the prescribed Squat slot.
@@ -251,6 +260,64 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
 
     // AC-6: the suggestion exists and is visible before the exercise's
     // next occurrence — not yet dismissed via "Done".
+    expect(onSessionCompleted).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId('session-suggestions-done'));
+    await waitFor(() => expect(onSessionCompleted).toHaveBeenCalled());
+  });
+
+  test('Phase 10 integration (FR-8.2/AC-11/NFR-4): a new heaviest set shows a PR card before onSessionCompleted fires', async () => {
+    const onSessionCompleted = jest.fn();
+    const { getByTestId } = await renderLoaded(onSessionCompleted);
+
+    // Set up test-specific mocks AFTER renderLoaded, since renderLoaded
+    // itself sets safe defaults for getSetLogsForExercises/createPersonalRecord
+    // that would otherwise clobber these.
+    mockedApiClient.completeWorkoutSession.mockResolvedValue({
+      data: { id: 'wsession-1', plannedSessionId: 'planned-1', workoutPlanId: 'plan-1', status: 'completed', startedAt: '', completedAt: '2026-01-01T01:00:00Z' },
+      error: null,
+    });
+    // Squat (ex-1): a missed set so no progression suggestion is generated,
+    // isolating this test to PR derivation. One set at 55kg x 8 reps — a
+    // new heaviest 8-rep set compared to the 50kg prior best below.
+    mockedApiClient.getSetLogsForSession.mockResolvedValue({
+      data: [
+        { id: 'l1', workoutSessionId: 'wsession-1', exerciseId: 'ex-1', setIndex: 1, weightKg: 55, reps: 8, rpe: null, loggedAt: '2026-01-01T01:00:00Z' },
+        { id: 'l2', workoutSessionId: 'wsession-1', exerciseId: 'ex-1', setIndex: 2, weightKg: null, reps: null, rpe: null, loggedAt: '2026-01-01T01:00:00Z' },
+        { id: 'l4', workoutSessionId: 'wsession-1', exerciseId: 'ex-2', setIndex: 1, weightKg: 30, reps: 12, rpe: null, loggedAt: '' },
+        { id: 'l5', workoutSessionId: 'wsession-1', exerciseId: 'ex-2', setIndex: 2, weightKg: 30, reps: 12, rpe: null, loggedAt: '' },
+        { id: 'l6', workoutSessionId: 'wsession-1', exerciseId: 'ex-2', setIndex: 3, weightKg: 30, reps: 12, rpe: null, loggedAt: '' },
+      ],
+      error: null,
+    });
+    mockedApiClient.getSetLogsForExercises.mockResolvedValue({
+      data: [
+        { id: 'prior-1', workoutSessionId: 'wsession-0', exerciseId: 'ex-1', setIndex: 1, weightKg: 50, reps: 8, rpe: null, loggedAt: '2025-12-01T00:00:00Z' },
+      ],
+      error: null,
+    });
+    mockedApiClient.createProgressionSuggestion.mockResolvedValue({ data: null, error: null });
+    mockedApiClient.createPersonalRecord.mockImplementation(async (_client, _userId, input) => ({
+      data: {
+        id: 'pr-1',
+        exerciseId: input.exerciseId,
+        setLogId: input.setLogId,
+        repCount: input.repCount,
+        weightKg: input.weightKg,
+        estimatedOneRm: input.estimatedOneRm,
+        achievedAt: input.achievedAt,
+      },
+      error: null,
+    }));
+
+    fireEvent.press(getByTestId('session-complete-button'));
+
+    await waitFor(() => expect(getByTestId('new-pr-card-Squat-8')).toBeTruthy());
+    expect(mockedApiClient.createPersonalRecord).toHaveBeenCalledWith(
+      fakeClient,
+      'user-1',
+      expect.objectContaining({ exerciseId: 'ex-1', repCount: 8, weightKg: 55 }),
+    );
     expect(onSessionCompleted).not.toHaveBeenCalled();
 
     fireEvent.press(getByTestId('session-suggestions-done'));

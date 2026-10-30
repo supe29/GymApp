@@ -2,11 +2,13 @@ import { getWorkoutSessionHistory, type GymSupabaseClient, type WorkoutSessionHi
 import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
+import EmptyState from '../../components/EmptyState';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 
 export interface WorkoutHistoryScreenProps {
   client?: GymSupabaseClient;
   userId: string;
+  onStartWorkout?: () => void;
 }
 
 function formatDate(iso: string): string {
@@ -15,7 +17,7 @@ function formatDate(iso: string): string {
 }
 
 /** FR-5.5/AC-8: lists the user's past workout sessions, plan-attached or freeform. */
-export default function WorkoutHistoryScreen({ client = getSupabaseClient(), userId }: WorkoutHistoryScreenProps) {
+export default function WorkoutHistoryScreen({ client = getSupabaseClient(), userId, onStartWorkout }: WorkoutHistoryScreenProps) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<WorkoutSessionHistoryEntry[]>([]);
@@ -54,7 +56,13 @@ export default function WorkoutHistoryScreen({ client = getSupabaseClient(), use
   if (entries.length === 0) {
     return (
       <View style={styles.container}>
-        <Text testID="history-empty">No workout sessions logged yet.</Text>
+        <EmptyState
+          testID="history-empty"
+          title="No workout sessions logged yet"
+          message="Start a workout to see your history here."
+          actionLabel={onStartWorkout ? 'Start a workout' : undefined}
+          onAction={onStartWorkout}
+        />
       </View>
     );
   }

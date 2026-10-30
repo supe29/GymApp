@@ -1,5 +1,6 @@
 import {
   completeWorkoutSession,
+  getSetLogsForExercises,
   getSetLogsForSession,
   getWorkoutSessionHistory,
   logSet,
@@ -141,6 +142,29 @@ describe('getSetLogsForSession', () => {
     expect(builder.eq).toHaveBeenCalledWith('workout_session_id', 'session-1');
     expect(builder.order).toHaveBeenCalledWith('set_index');
     expect(result.data).toHaveLength(1);
+  });
+});
+
+describe('getSetLogsForExercises (FR-8.2/NFR-4)', () => {
+  test('returns set logs across every session for the given exercises', async () => {
+    const { client, from } = createMockClient();
+    const builder = createQueryBuilderMock({ data: [fakeSetLogRow], error: null });
+    from.mockReturnValueOnce(builder);
+
+    const result = await getSetLogsForExercises(client, 'user-1', ['ex-1']);
+
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(builder.in).toHaveBeenCalledWith('exercise_id', ['ex-1']);
+    expect(result.data).toHaveLength(1);
+  });
+
+  test('skips the query entirely for an empty exercise list', async () => {
+    const { client, from } = createMockClient();
+
+    const result = await getSetLogsForExercises(client, 'user-1', []);
+
+    expect(result.data).toEqual([]);
+    expect(from).not.toHaveBeenCalled();
   });
 });
 

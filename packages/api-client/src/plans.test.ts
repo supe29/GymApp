@@ -297,6 +297,148 @@ describe('generateInitialPlan (AC-1)', () => {
     expect(result.error).toBeNull();
     expect(result.data?.sessions[0].exercises[0].exerciseId).toBe('ex-1');
   });
+
+  test('SR-3 adversarial: a beginner profile never gets an advanced exercise when a safer alternative targets the same muscle group', async () => {
+    const { client, from } = createMockClient();
+    const exerciseLibrary: ExerciseWithTags[] = [
+      { id: 'ex-1', name: 'Squat', instructions: null, difficulty: 'beginner', primaryMuscleKeys: ['quadriceps'], secondaryMuscleKeys: [], requiredEquipmentKeys: [] },
+      { id: 'ex-2', name: 'Pistol Squat', instructions: null, difficulty: 'advanced', primaryMuscleKeys: ['quadriceps'], secondaryMuscleKeys: [], requiredEquipmentKeys: [] },
+    ];
+    from
+      // getProfile
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: {
+            user_id: 'user-1',
+            age: 25,
+            height_cm: 180,
+            weight_kg: 80,
+            biological_sex: 'prefer_not_to_say',
+            fitness_level: 'beginner',
+            goal: 'general_fitness',
+            training_days_per_week: 1,
+            unit_preference: 'metric',
+            created_at: '',
+            updated_at: '',
+          },
+          error: null,
+        }),
+      )
+      // getUserEquipmentIds
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }))
+      // listEquipmentItems
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }))
+      // getExercisesWithTags (5 parallel queries)
+      .mockReturnValueOnce(createQueryBuilderMock({ data: exerciseLibrary.map((e) => ({ id: e.id, name: e.name, instructions: e.instructions, difficulty: e.difficulty })), error: null }))
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [
+            { exercise_id: 'ex-1', muscle_group_id: 'mg-quad', role: 'primary' },
+            { exercise_id: 'ex-2', muscle_group_id: 'mg-quad', role: 'primary' },
+          ],
+          error: null,
+        }),
+      )
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'mg-quad', key: 'quadriceps' }], error: null }))
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }))
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }))
+      // createWorkoutPlan: workout_plans insert
+      .mockReturnValueOnce(createQueryBuilderMock({ data: fakePlanRow, error: null }))
+      // createWorkoutPlan: planned_sessions insert
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [{ id: 'session-1', workout_plan_id: 'plan-1', user_id: 'user-1', day_order: 1, name: 'Full Body', created_at: '' }],
+          error: null,
+        }),
+      );
+    const exercisesInsertBuilder = createQueryBuilderMock({
+      data: [
+        { id: 'pse-1', planned_session_id: 'session-1', user_id: 'user-1', exercise_id: 'ex-1', order_index: 0, target_sets: 3, target_reps_min: 10, target_reps_max: 12, target_weight_kg: null, intensity_note: 'note', created_at: '' },
+      ],
+      error: null,
+    });
+    from.mockReturnValueOnce(exercisesInsertBuilder);
+
+    const result = await generateInitialPlan(client, 'user-1');
+
+    expect(result.error).toBeNull();
+    const insertedIds = (exercisesInsertBuilder.insert as jest.Mock).mock.calls[0][0].map(
+      (row: { exercise_id: string }) => row.exercise_id,
+    );
+    expect(insertedIds).toContain('ex-1');
+    expect(insertedIds).not.toContain('ex-2');
+  });
+
+  test('SR-6 adversarial: an exercise requiring undeclared equipment is never prescribed when a bodyweight alternative exists', async () => {
+    const { client, from } = createMockClient();
+    const exerciseLibrary: ExerciseWithTags[] = [
+      { id: 'ex-1', name: 'Bodyweight Squat', instructions: null, difficulty: 'beginner', primaryMuscleKeys: ['quadriceps'], secondaryMuscleKeys: [], requiredEquipmentKeys: [] },
+      { id: 'ex-2', name: 'Barbell Squat', instructions: null, difficulty: 'beginner', primaryMuscleKeys: ['quadriceps'], secondaryMuscleKeys: [], requiredEquipmentKeys: ['barbell'] },
+    ];
+    from
+      // getProfile
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: {
+            user_id: 'user-1',
+            age: 25,
+            height_cm: 180,
+            weight_kg: 80,
+            biological_sex: 'prefer_not_to_say',
+            fitness_level: 'beginner',
+            goal: 'general_fitness',
+            training_days_per_week: 1,
+            unit_preference: 'metric',
+            created_at: '',
+            updated_at: '',
+          },
+          error: null,
+        }),
+      )
+      // getUserEquipmentIds: user has declared nothing
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }))
+      // listEquipmentItems
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }))
+      // getExercisesWithTags (5 parallel queries)
+      .mockReturnValueOnce(createQueryBuilderMock({ data: exerciseLibrary.map((e) => ({ id: e.id, name: e.name, instructions: e.instructions, difficulty: e.difficulty })), error: null }))
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [
+            { exercise_id: 'ex-1', muscle_group_id: 'mg-quad', role: 'primary' },
+            { exercise_id: 'ex-2', muscle_group_id: 'mg-quad', role: 'primary' },
+          ],
+          error: null,
+        }),
+      )
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'mg-quad', key: 'quadriceps' }], error: null }))
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ exercise_id: 'ex-2', equipment_item_id: 'eq-barbell' }], error: null }))
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'eq-barbell', key: 'barbell' }], error: null }))
+      // createWorkoutPlan: workout_plans insert
+      .mockReturnValueOnce(createQueryBuilderMock({ data: fakePlanRow, error: null }))
+      // createWorkoutPlan: planned_sessions insert
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [{ id: 'session-1', workout_plan_id: 'plan-1', user_id: 'user-1', day_order: 1, name: 'Full Body', created_at: '' }],
+          error: null,
+        }),
+      );
+    const exercisesInsertBuilder = createQueryBuilderMock({
+      data: [
+        { id: 'pse-1', planned_session_id: 'session-1', user_id: 'user-1', exercise_id: 'ex-1', order_index: 0, target_sets: 3, target_reps_min: 10, target_reps_max: 12, target_weight_kg: null, intensity_note: 'note', created_at: '' },
+      ],
+      error: null,
+    });
+    from.mockReturnValueOnce(exercisesInsertBuilder);
+
+    const result = await generateInitialPlan(client, 'user-1');
+
+    expect(result.error).toBeNull();
+    const insertedIds = (exercisesInsertBuilder.insert as jest.Mock).mock.calls[0][0].map(
+      (row: { exercise_id: string }) => row.exercise_id,
+    );
+    expect(insertedIds).toContain('ex-1');
+    expect(insertedIds).not.toContain('ex-2');
+  });
 });
 
 describe('buildRegenerationPreview (FR-2.4)', () => {
@@ -440,5 +582,52 @@ describe('getPlannedSessionById (FR-5.2, Phase 7)', () => {
     expect(squat?.targetWeightKg).toBe(52.5);
     expect(squat?.targetRepsMin).toBe(8);
     expect(bench?.targetWeightKg).toBe(30);
+  });
+
+  test('SR-4 adversarial: an accepted hold suggestion (produced after a missed set) leaves targetWeightKg and targetRepsMin unchanged through the real overlay', async () => {
+    const { client, from } = createMockClient();
+    from
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: { id: 'session-1', workout_plan_id: 'plan-1', user_id: 'user-1', day_order: 1, name: 'Full Body', created_at: '' },
+          error: null,
+        }),
+      )
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [
+            { id: 'pse-1', planned_session_id: 'session-1', user_id: 'user-1', exercise_id: 'ex-1', order_index: 0, target_sets: 3, target_reps_min: 8, target_reps_max: 12, target_weight_kg: 50, intensity_note: null, created_at: '' },
+          ],
+          error: null,
+        }),
+      )
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }], error: null }))
+      .mockReturnValueOnce(
+        createQueryBuilderMock({
+          data: [
+            {
+              id: 'sugg-1',
+              user_id: 'user-1',
+              exercise_id: 'ex-1',
+              source_workout_session_id: 'session-old',
+              action: 'hold',
+              suggested_weight_kg: 50,
+              suggested_reps: null,
+              rationale: "You missed at least one prescribed set (fewer than 8 reps, or a set wasn't completed), so we're keeping the same weight and reps next time.",
+              status: 'accepted',
+              overridden_weight_kg: null,
+              overridden_reps: null,
+              created_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          error: null,
+        }),
+      );
+
+    const result = await getPlannedSessionById(client, 'user-1', 'session-1');
+
+    const squat = result.data?.exercises.find((e) => e.exerciseId === 'ex-1');
+    expect(squat?.targetWeightKg).toBe(50);
+    expect(squat?.targetRepsMin).toBe(8);
   });
 });

@@ -120,4 +120,15 @@ describe('SignUpScreen (FR-9.1)', () => {
 
     expect(onNavigateToSignIn).toHaveBeenCalled();
   });
+
+  test('navigates to the privacy policy (PR-3)', async () => {
+    const onViewPrivacyPolicy = jest.fn();
+    const { getByTestId } = await render(
+      <SignUpScreen client={fakeClient} onViewPrivacyPolicy={onViewPrivacyPolicy} />,
+    );
+
+    fireEvent.press(getByTestId('signup-privacy-policy'));
+
+    expect(onViewPrivacyPolicy).toHaveBeenCalled();
+  });
 });

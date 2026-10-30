@@ -3,4 +3,5 @@ module.exports = {
   displayName: 'app',
   preset: 'jest-expo',
   rootDir: __dirname,
+  setupFiles: ['<rootDir>/jest.setup.cjs'],
 };

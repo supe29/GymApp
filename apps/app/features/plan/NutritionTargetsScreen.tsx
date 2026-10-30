@@ -63,11 +63,12 @@ export default function NutritionTargetsScreen({
     setGenerating(true);
     const result = await generateInitialNutritionTargets(client, userId);
     setGenerating(false);
-    if (result.error) {
-      setError(result.error);
+    if (result.error || !result.data) {
+      setError(result.error ?? 'Failed to generate nutrition targets.');
       return;
     }
     setCurrentTargets(result.data);
+    setWarningBanner(result.data.unsafeConfigurationWarning);
     onTargetsRegenerated?.();
   }
 

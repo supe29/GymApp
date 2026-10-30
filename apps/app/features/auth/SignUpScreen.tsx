@@ -9,6 +9,7 @@ export interface SignUpScreenProps {
   client?: GymSupabaseClient;
   onSignedUp?: () => void;
   onNavigateToSignIn?: () => void;
+  onViewPrivacyPolicy?: () => void;
 }
 
 /** FR-9.1: create an account via email/password, Google, or Apple. */
@@ -16,6 +17,7 @@ export default function SignUpScreen({
   client = getSupabaseClient(),
   onSignedUp,
   onNavigateToSignIn,
+  onViewPrivacyPolicy,
 }: SignUpScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -110,6 +112,14 @@ export default function SignUpScreen({
       <Pressable testID="signup-goto-signin" onPress={onNavigateToSignIn}>
         <Text style={styles.link}>Already have an account? Sign in</Text>
       </Pressable>
+
+      <Text style={styles.disclosure}>
+        By creating an account, you agree to our{' '}
+        <Text testID="signup-privacy-policy" style={styles.link} onPress={onViewPrivacyPolicy}>
+          Privacy Policy
+        </Text>
+        .
+      </Text>
     </View>
   );
 }
@@ -134,4 +144,5 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: '600' },
   error: { color: '#b00020', marginBottom: 12 },
   link: { color: '#111', textDecorationLine: 'underline', textAlign: 'center', marginTop: 8 },
+  disclosure: { fontSize: 12, color: '#555', textAlign: 'center', marginTop: 16 },
 });

@@ -936,3 +936,161 @@ describe('DR-5: plan/target versioning', () => {
     assert.notEqual(v1Row.rows[0].superseded_at, null);
   });
 });
+
+// ---------------------------------------------------------------------
+// Phase 12 / AC-13: account-deletion completeness
+// ---------------------------------------------------------------------
+
+describe('AC-13: account deletion leaves zero residual rows across every user-scoped table', () => {
+  test('deleting auth.users (the delete-account edge function\'s own operation) cascades through every table, including superseded plan/target versions', async () => {
+    const user = await seedUser(db);
+
+    await asServiceRole(
+      db,
+      `insert into public.user_equipment (user_id, equipment_item_id) values ($1, $2)`,
+      [user, shared.equipmentItemId],
+    );
+
+    // Workout plan: v1 then v2, so v1 ends up superseded (DR-5 history).
+    const planV1 = await asUser(
+      db,
+      user,
+      `insert into public.workout_plans (user_id, split_type) values ($1, 'full_body') returning id`,
+      [user],
+    );
+    const sessionV1 = await asUser(
+      db,
+      user,
+      `insert into public.planned_sessions (workout_plan_id, user_id, day_order, name) values ($1, $2, 1, 'Day 1') returning id`,
+      [planV1.rows[0].id, user],
+    );
+    await asUser(
+      db,
+      user,
+      `insert into public.planned_session_exercises (planned_session_id, user_id, exercise_id, order_index, target_sets, target_reps_min)
+       values ($1, $2, $3, 1, 3, 8)`,
+      [sessionV1.rows[0].id, user, shared.exerciseId],
+    );
+    const workoutSession = await asUser(
+      db,
+      user,
+      `insert into public.workout_sessions (user_id, planned_session_id) values ($1, $2) returning id`,
+      [user, sessionV1.rows[0].id],
+    );
+    const setLog = await asUser(
+      db,
+      user,
+      `insert into public.set_logs (workout_session_id, user_id, exercise_id, set_index, weight_kg, reps)
+       values ($1, $2, $3, 1, 100, 5) returning id`,
+      [workoutSession.rows[0].id, user, shared.exerciseId],
+    );
+    await asUser(
+      db,
+      user,
+      `insert into public.progression_suggestions (user_id, exercise_id, source_workout_session_id, action, suggested_weight_kg, suggested_reps, rationale)
+       values ($1, $2, $3, 'increase_weight', 102.5, 5, 'Full prescription met')`,
+      [user, shared.exerciseId, workoutSession.rows[0].id],
+    );
+    await asUser(
+      db,
+      user,
+      `insert into public.personal_records (user_id, exercise_id, set_log_id, rep_count, weight_kg)
+       values ($1, $2, $3, 5, 100)`,
+      [user, shared.exerciseId, setLog.rows[0].id],
+    );
+    // Superseding regeneration — v1 must still be present (as superseded) right up until deletion.
+    await asUser(
+      db,
+      user,
+      `insert into public.workout_plans (user_id, split_type) values ($1, 'upper_lower') returning id`,
+      [user],
+    );
+
+    await asUser(
+      db,
+      user,
+      `insert into public.weight_entries (user_id, weight_kg, measured_at) values ($1, 80, current_date)`,
+      [user],
+    );
+
+    // Nutrition: target v1 then v2 (v1 superseded), plus a user-created private food item.
+    const targetV1 = await asUser(
+      db,
+      user,
+      `insert into public.nutrition_targets (user_id, daily_calories, protein_g, carbs_g, fat_g) values ($1, 2000, 150, 200, 60) returning id`,
+      [user],
+    );
+    const customFood = await asUser(
+      db,
+      user,
+      `insert into public.food_items (name, portion_description, calories_per_portion, protein_g_per_portion, carbs_g_per_portion, fat_g_per_portion, source, created_by_user_id)
+       values ('My Protein Shake', '1 scoop', 120, 25, 3, 1, 'user_created', $1) returning id`,
+      [user],
+    );
+    await asUser(
+      db,
+      user,
+      `insert into public.food_log_entries (user_id, food_item_id, nutrition_target_id, meal_slot, portion_quantity, log_date)
+       values ($1, $2, $3, 'breakfast', 1, current_date)`,
+      [user, customFood.rows[0].id, targetV1.rows[0].id],
+    );
+    await asUser(
+      db,
+      user,
+      `insert into public.nutrition_targets (user_id, daily_calories, protein_g, carbs_g, fat_g) values ($1, 1800, 140, 180, 55) returning id`,
+      [user],
+    );
+
+    // Sanity check: every table actually has at least one row for this user before deletion.
+    const tablesWithUserId = [
+      'profiles',
+      'user_equipment',
+      'workout_plans',
+      'planned_sessions',
+      'planned_session_exercises',
+      'workout_sessions',
+      'set_logs',
+      'progression_suggestions',
+      'personal_records',
+      'weight_entries',
+      'nutrition_targets',
+      'food_log_entries',
+    ];
+    for (const table of tablesWithUserId) {
+      const idCol = table === 'profiles' ? 'user_id' : 'user_id';
+      const { rows } = await asSuperuser(db, `select 1 from public.${table} where ${idCol} = $1`, [
+        user,
+      ]);
+      assert.ok(rows.length > 0, `expected at least one ${table} row for the user before deletion`);
+    }
+    const customFoodBefore = await asSuperuser(
+      db,
+      'select 1 from public.food_items where created_by_user_id = $1',
+      [user],
+    );
+    assert.equal(customFoodBefore.rows.length, 1);
+
+    // This is the one operation the delete-account edge function actually performs
+    // (supabase.auth.admin.deleteUser) — everything else is cascade, per the FK graph
+    // established across migrations 0001-0009.
+    const del = await asServiceRole(db, 'delete from auth.users where id = $1', [user]);
+    assert.equal(del.affectedRows, 1);
+
+    for (const table of tablesWithUserId) {
+      const { rows } = await asSuperuser(db, `select 1 from public.${table} where user_id = $1`, [
+        user,
+      ]);
+      assert.equal(rows.length, 0, `${table}: residual row found after account deletion`);
+    }
+    const customFoodAfter = await asSuperuser(
+      db,
+      'select 1 from public.food_items where created_by_user_id = $1',
+      [user],
+    );
+    assert.equal(
+      customFoodAfter.rows.length,
+      0,
+      'user-created private food item must not survive account deletion',
+    );
+  });
+});

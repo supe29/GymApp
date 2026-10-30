@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as apiClient from 'api-client';
 
 import WorkoutHistoryScreen from './WorkoutHistoryScreen';
@@ -19,6 +19,19 @@ describe('WorkoutHistoryScreen (FR-5.5/AC-8)', () => {
     const { getByTestId } = render(<WorkoutHistoryScreen client={fakeClient} userId="user-1" />);
 
     await waitFor(() => expect(getByTestId('history-empty')).toBeTruthy());
+  });
+
+  test('UX-9: the empty state offers a working "start a workout" action when onStartWorkout is given', async () => {
+    mockedApiClient.getWorkoutSessionHistory.mockResolvedValue({ data: [], error: null });
+    const onStartWorkout = jest.fn();
+
+    const { getByTestId } = render(
+      <WorkoutHistoryScreen client={fakeClient} userId="user-1" onStartWorkout={onStartWorkout} />,
+    );
+
+    await waitFor(() => expect(getByTestId('history-empty-action')).toBeTruthy());
+    fireEvent.press(getByTestId('history-empty-action'));
+    expect(onStartWorkout).toHaveBeenCalled();
   });
 
   test('renders a plan-attached session with its per-exercise set counts', async () => {

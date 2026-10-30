@@ -62,6 +62,7 @@ const generatedNutritionTargets = {
   fatG: 56,
   targetVersion: 1,
   effectiveFrom: '2026-01-01T00:00:00Z',
+  unsafeConfigurationWarning: null as string | null,
 };
 
 /**

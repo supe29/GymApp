@@ -21,3 +21,6 @@ export * from './logs/logAggregation';
 export * from './progression/rules/incrementRules';
 export * from './progression/evaluateSession';
 export * from './progression/applyProgressionOverlay';
+export * from './nutrition/dailyTotals';
+export * from './progress/prCalculator';
+export * from './planning/nextSessionSelector';

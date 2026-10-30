@@ -161,6 +161,53 @@ describe('generateInitialNutritionTargets (AC-1)', () => {
     expect(result.data).toBeNull();
     expect(result.error).toContain('No profile found');
   });
+
+  test('SR-1 adversarial: an extreme low-weight/aggressive-deficit/high-training-volume profile is clamped to the sex-specific safe floor before being persisted', async () => {
+    const { client, from } = createMockClient();
+    const extremeProfile = {
+      ...fakeProfile,
+      biological_sex: 'female' as const,
+      weight_kg: 35,
+      height_cm: 140,
+      age: 80,
+      goal: 'fat_loss' as const,
+      training_days_per_week: 7,
+    };
+    const insertBuilder = createQueryBuilderMock({ data: fakeTargetsRow, error: null });
+    from
+      .mockReturnValueOnce(createQueryBuilderMock({ data: extremeProfile, error: null }))
+      .mockReturnValueOnce(insertBuilder);
+
+    const result = await generateInitialNutritionTargets(client, 'user-1');
+
+    expect(result.error).toBeNull();
+    const insertedPayload = (insertBuilder.insert as jest.Mock).mock.calls[0][0];
+    expect(insertedPayload.daily_calories).toBe(1200);
+  });
+
+  test('SR-2 adversarial: an aggressive fat_loss + high-training-volume profile surfaces a non-null warning on the result without persisting it', async () => {
+    const { client, from } = createMockClient();
+    const aggressiveProfile = {
+      ...fakeProfile,
+      biological_sex: 'female' as const,
+      weight_kg: 60,
+      height_cm: 160,
+      age: 25,
+      goal: 'fat_loss' as const,
+      training_days_per_week: 7,
+    };
+    const insertBuilder = createQueryBuilderMock({ data: fakeTargetsRow, error: null });
+    from
+      .mockReturnValueOnce(createQueryBuilderMock({ data: aggressiveProfile, error: null }))
+      .mockReturnValueOnce(insertBuilder);
+
+    const result = await generateInitialNutritionTargets(client, 'user-1');
+
+    expect(result.error).toBeNull();
+    expect(typeof result.data?.unsafeConfigurationWarning).toBe('string');
+    const insertedPayload = (insertBuilder.insert as jest.Mock).mock.calls[0][0];
+    expect(insertedPayload).not.toHaveProperty('unsafe_configuration_warning');
+  });
 });
 
 describe('buildNutritionRegenerationPreview (FR-2.4)', () => {

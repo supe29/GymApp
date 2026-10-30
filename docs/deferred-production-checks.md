@@ -17,12 +17,16 @@ readiness review — see plan.md Phase 12/13.
       `expo-web-browser` / `expo-linking` redirect round-trip actually
       completes on a real iOS and Android device (deep link handling can't be
       verified by a component test).
-- [ ] **Execute and verify the delete-account Edge Function**
+- [ ] **Execute the delete-account Edge Function itself**
       (`supabase/functions/delete-account/index.ts`) — written to match
-      Supabase's documented pattern but never run; verify with
-      `supabase functions serve` / a deployed function once Docker/Deno are
-      available, including that it actually cascades and leaves zero residual
-      rows (DR-4).
+      Supabase's documented pattern but never run as a Deno function; verify
+      with `supabase functions serve` / a deployed function once Docker/Deno
+      are available (auth-header handling, the two-client pattern, HTTP
+      status codes). The cascade-completeness part of this item (that
+      deleting `auth.users` actually leaves zero residual rows across every
+      table, including superseded `plan_version`/`target_version` history)
+      is now verified — see Phase 12's `AC-13` test in
+      `supabase/tests/adversarial.test.mjs` and `docs/security-checklist.md`.
 - [ ] **Real Supabase Auth/PostgREST integration** — every `GymSupabaseClient`
       call in `packages/api-client` has only been tested against a mock; run
       the full auth + profile flow against a real local (`supabase start`) or
@@ -49,6 +53,9 @@ readiness review — see plan.md Phase 12/13.
       "loads and becomes interactive within a few seconds" and "no
       perceptible lag" targets have not been measured on any real device
       (folds into the existing Android/iOS runtime verification items above).
+- [ ] **Native barcode scanning verification (Phase 9)** — `apps/app/features/nutrition/BarcodeScanScreen.native.tsx` (expo-camera) has not been executed on a real iOS/Android device, same gap as the three-model native adapter above. The web adapter's real camera/`BarcodeDetector` logic IS exercised by `BarcodeScanScreen.web.test.tsx` (mocked `getUserMedia`/`BarcodeDetector`), but that is still not a real-browser verification.
+- [ ] **Real food/barcode dataset licensing and integration (Phase 9)** — `supabase/seed/food_items_seed.sql` is a small hand-authored placeholder dataset, not a licensed third-party source; Phase 0.5's food/barcode go/no-go sign-off (`docs/licensing/go-no-go-checklist.md`) was never completed. `foodSearch.ts`/`barcodeLookup.ts` only ever query the `food_items` table, so swapping in a real licensed import requires no application code changes — but the licensing review itself, and replacing the seed file with a real import, must happen before production.
+- [ ] **Real on-device web/mobile parity verification (Phase 11, NFR-1)** — `docs/qa/web-mobile-parity-checklist.md`'s "required line items" (the 3D muscle model's native adapter, and native barcode scanning) are verified structurally/by-code-review only, same gap as their individual Phase 4/Phase 9 entries above. The full screen-by-screen review in that checklist found no other platform-exclusive code path, but none of it has been exercised on a real iOS/Android device.
 - [ ] **SR-5 legal review, if required before production** — the disclaimer
       copy in `apps/app/features/legal/DisclaimerScreen.tsx` is a reasonable
       draft, not a legally reviewed text. Confirm with whoever owns

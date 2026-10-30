@@ -1,16 +1,21 @@
 import {
   completeWorkoutSession,
+  createPersonalRecord,
   getExercisesWithTags,
+  getProfile,
+  getSetLogsForExercises,
+  getSetLogsForSession,
   getUserEquipmentIds,
   listEquipmentItems,
   startWorkoutSession,
   type GymSupabaseClient,
 } from 'api-client';
-import { filterByEquipmentSubset, type ExerciseWithTags } from 'core';
+import { deriveNewPersonalRecords, filterByEquipmentSubset, type ExerciseWithTags, type UnitPreference } from 'core';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getSupabaseClient } from '../../lib/supabaseClient';
+import NewPersonalRecordCard from '../progress/NewPersonalRecordCard';
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
 import RestTimer from './RestTimer';
 import SetLogger, { type LoggedSetDisplay } from './SetLogger';
@@ -26,6 +31,14 @@ interface FreeformSlot {
   exerciseName: string;
   nextSetIndex: number;
   loggedSets: LoggedSetDisplay[];
+}
+
+interface NewPrCardState {
+  exerciseId: string;
+  exerciseName: string;
+  repCount: number;
+  weightKg: number;
+  estimatedOneRm: number;
 }
 
 /**
@@ -48,6 +61,8 @@ export default function FreeformSessionScreen({
   const [availableEquipmentKeys, setAvailableEquipmentKeys] = useState<string[]>([]);
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [newPrCards, setNewPrCards] = useState<NewPrCardState[]>([]);
+  const [unitPreference, setUnitPreference] = useState<UnitPreference>('metric');
   const queueRef = useRef<OfflineQueueHandle | null>(null);
 
   function updateLoggedSet(id: string, patch: Partial<LoggedSetDisplay>) {
@@ -70,12 +85,16 @@ export default function FreeformSessionScreen({
 
   useEffect(() => {
     async function load() {
-      const [sessionResult, equipmentIdsResult, equipmentItemsResult, exercisesResult] = await Promise.all([
+      const [sessionResult, equipmentIdsResult, equipmentItemsResult, exercisesResult, profileResult] = await Promise.all([
         startWorkoutSession(client, userId),
         getUserEquipmentIds(client, userId),
         listEquipmentItems(client),
         getExercisesWithTags(client),
+        getProfile(client, userId),
       ]);
+      if (profileResult.data) {
+        setUnitPreference(profileResult.data.unit_preference);
+      }
 
       if (sessionResult.error || !sessionResult.data) {
         setError(sessionResult.error ?? 'Failed to start workout session.');
@@ -145,11 +164,47 @@ export default function FreeformSessionScreen({
     if (!workoutSessionId) return;
     setCompleting(true);
     const result = await completeWorkoutSession(client, userId, workoutSessionId);
-    setCompleting(false);
     if (result.error) {
+      setCompleting(false);
       setError(result.error);
       return;
     }
+
+    // FR-8.2/AC-11/NFR-4: unlike Phase 8's progression suggestions (which
+    // need a prescription row freeform sessions don't have), PR derivation
+    // only needs raw set logs, so it applies here too.
+    const logsRes = await getSetLogsForSession(client, userId, workoutSessionId);
+    const confirmedLogs = logsRes.data ?? [];
+    const touchedExerciseIds = [...new Set(slots.map((slot) => slot.exerciseId))];
+    const allLogsRes = await getSetLogsForExercises(client, userId, touchedExerciseIds);
+    const priorLogs = (allLogsRes.data ?? []).filter((log) => log.workoutSessionId !== workoutSessionId);
+    const newPrs = deriveNewPersonalRecords(confirmedLogs, priorLogs);
+
+    const prCards: NewPrCardState[] = [];
+    for (const pr of newPrs) {
+      const createRes = await createPersonalRecord(client, userId, pr);
+      if (createRes.data) {
+        const slot = slots.find((s) => s.exerciseId === pr.exerciseId);
+        prCards.push({
+          exerciseId: pr.exerciseId,
+          exerciseName: slot?.exerciseName ?? pr.exerciseId,
+          repCount: pr.repCount,
+          weightKg: pr.weightKg,
+          estimatedOneRm: pr.estimatedOneRm,
+        });
+      }
+    }
+
+    setCompleting(false);
+    if (prCards.length === 0) {
+      onSessionCompleted?.();
+      return;
+    }
+    setNewPrCards(prCards);
+  }
+
+  function handleDoneReviewingPrs() {
+    setNewPrCards([]);
     onSessionCompleted?.();
   }
 
@@ -158,6 +213,27 @@ export default function FreeformSessionScreen({
       <View style={styles.container}>
         <Text testID="freeform-session-loading">Loading...</Text>
       </View>
+    );
+  }
+
+  if (newPrCards.length > 0) {
+    return (
+      <ScrollView style={styles.container} testID="freeform-session-pr-review">
+        <Text style={styles.title}>Session complete — what&apos;s next</Text>
+        {newPrCards.map((card) => (
+          <NewPersonalRecordCard
+            key={`${card.exerciseId}-${card.repCount}`}
+            exerciseName={card.exerciseName}
+            repCount={card.repCount}
+            weightKg={card.weightKg}
+            estimatedOneRm={card.estimatedOneRm}
+            unitPreference={unitPreference}
+          />
+        ))}
+        <Pressable testID="freeform-session-pr-review-done" style={styles.button} onPress={handleDoneReviewingPrs}>
+          <Text style={styles.buttonText}>Done</Text>
+        </Pressable>
+      </ScrollView>
     );
   }
 
@@ -225,6 +301,7 @@ export default function FreeformSessionScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24 },
+  title: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
   error: { color: '#b00020', marginBottom: 12 },
   empty: { color: '#666', marginBottom: 16 },
   optionRow: { paddingVertical: 8 },

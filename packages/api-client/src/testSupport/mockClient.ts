@@ -13,6 +13,7 @@ export function createQueryBuilderMock(result: { data: unknown; error: unknown }
   const builder: Record<string, unknown> = {
     select: jest.fn(() => builder),
     eq: jest.fn(() => builder),
+    ilike: jest.fn(() => builder),
     is: jest.fn(() => builder),
     in: jest.fn(() => builder),
     order: jest.fn(() => builder),

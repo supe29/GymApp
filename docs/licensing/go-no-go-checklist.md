@@ -11,7 +11,7 @@ phase first needs each asset.
 |---|---|---|---|
 | Exercise dataset | Phase 3 | ✅ Signed off (2026-09-29) | `/docs/licensing/exercise-dataset-license.md` |
 | 3D mesh (muscle model) | Phase 4 | ✅ Signed off — GO (2026-09-29) | `/docs/licensing/3d-mesh-license.md` |
-| Food/barcode dataset(s) | Phase 9 | ⏳ Not yet needed | To be completed before Phase 9 implementation begins |
+| Food/barcode dataset(s) | Phase 9 | ⏳ Still not signed off — implementation proceeded against placeholder data (see note below) | To be completed before any real food/barcode dataset ships |
 
 ## Exercise dataset — summary
 
@@ -20,6 +20,23 @@ record: source (`yuhonas/free-exercise-db`), license (Unlicense / public
 domain, commercial use and redistribution both explicitly permitted), no
 attribution required, safe to vendor/store locally, no live API dependency,
 maintenance is manual re-import.
+
+## Food/barcode dataset(s) — note (Phase 9)
+
+**Not signed off.** This asset's licensing review per this checklist's own
+gate (candidate source evaluation, redistribution rules, attribution,
+offline-storage permission, API/rate-limit restrictions, maintenance owner —
+see Phase 0.5's requirements in `plan.md`) has not happened.
+
+Per an explicit user decision on 2026-10-28, Phase 9's food search/barcode
+scan/logging feature was implemented anyway, against a small hand-authored
+placeholder dataset (`supabase/seed/food_items_seed.sql`) seeded directly
+into the already-licensed, already-migrated `food_items` table — not a real
+third-party database. `packages/api-client/src/foodSearch.ts` and
+`barcodeLookup.ts` only ever query that table, so replacing the seed file
+with a real, signed-off import later requires zero application code
+changes. This is tracked in `/docs/deferred-production-checks.md` as a
+production blocker: do not ship real users against this placeholder data.
 
 ## 3D mesh — summary
 

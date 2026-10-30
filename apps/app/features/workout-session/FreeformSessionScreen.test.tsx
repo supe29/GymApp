@@ -9,6 +9,10 @@ jest.mock('api-client', () => ({
   getUserEquipmentIds: jest.fn(),
   listEquipmentItems: jest.fn(),
   getExercisesWithTags: jest.fn(),
+  getProfile: jest.fn(),
+  getSetLogsForSession: jest.fn(),
+  getSetLogsForExercises: jest.fn(),
+  createPersonalRecord: jest.fn(),
 }));
 
 const mockEnqueue = jest.fn();
@@ -43,6 +47,10 @@ async function renderLoaded(onSessionCompleted?: () => void) {
   mockedApiClient.getUserEquipmentIds.mockResolvedValue({ data: [], error: null });
   mockedApiClient.listEquipmentItems.mockResolvedValue({ data: [], error: null });
   mockedApiClient.getExercisesWithTags.mockResolvedValue({ data: exerciseLibrary, error: null });
+  mockedApiClient.getProfile.mockResolvedValue({ data: { unit_preference: 'metric' } as never, error: null });
+  mockedApiClient.getSetLogsForSession.mockResolvedValue({ data: [], error: null });
+  mockedApiClient.getSetLogsForExercises.mockResolvedValue({ data: [], error: null });
+  mockedApiClient.createPersonalRecord.mockResolvedValue({ data: null, error: null });
 
   const utils = render(
     <FreeformSessionScreen client={fakeClient} userId="user-1" onSessionCompleted={onSessionCompleted} />,
@@ -111,5 +119,46 @@ describe('FreeformSessionScreen (FR-5.2/AC-8)', () => {
     fireEvent.press(getByTestId('freeform-add-exercise-toggle'));
     expect(queryByTestId('freeform-add-exercise-option-ex-1')).toBeNull();
     expect(getByTestId('freeform-add-exercise-option-ex-2')).toBeTruthy();
+  });
+
+  test('Phase 10 integration (FR-8.2/AC-11/NFR-4): a new heaviest set shows a PR card before onSessionCompleted fires, even with no plan attachment', async () => {
+    const onSessionCompleted = jest.fn();
+    const { getByTestId } = await renderLoaded(onSessionCompleted);
+
+    fireEvent.press(getByTestId('freeform-add-exercise-toggle'));
+    fireEvent.press(getByTestId('freeform-add-exercise-option-ex-1'));
+    fireEvent.press(getByTestId('set-logger-ex-1-weight-inc'));
+    fireEvent.press(getByTestId('set-logger-ex-1-reps-inc'));
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+
+    mockedApiClient.completeWorkoutSession.mockResolvedValue({
+      data: { id: 'wsession-1', plannedSessionId: null, workoutPlanId: null, status: 'completed', startedAt: '', completedAt: '2026-01-01T01:00:00Z' },
+      error: null,
+    });
+    mockedApiClient.getSetLogsForSession.mockResolvedValue({
+      data: [{ id: 'l1', workoutSessionId: 'wsession-1', exerciseId: 'ex-1', setIndex: 1, weightKg: 2.5, reps: 1, rpe: null, loggedAt: '' }],
+      error: null,
+    });
+    mockedApiClient.getSetLogsForExercises.mockResolvedValue({ data: [], error: null });
+    mockedApiClient.createPersonalRecord.mockImplementation(async (_client, _userId, input) => ({
+      data: {
+        id: 'pr-1',
+        exerciseId: input.exerciseId,
+        setLogId: input.setLogId,
+        repCount: input.repCount,
+        weightKg: input.weightKg,
+        estimatedOneRm: input.estimatedOneRm,
+        achievedAt: input.achievedAt,
+      },
+      error: null,
+    }));
+
+    fireEvent.press(getByTestId('freeform-complete-button'));
+
+    await waitFor(() => expect(getByTestId('new-pr-card-Bodyweight Squat-1')).toBeTruthy());
+    expect(onSessionCompleted).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId('freeform-session-pr-review-done'));
+    await waitFor(() => expect(onSessionCompleted).toHaveBeenCalled());
   });
 });
