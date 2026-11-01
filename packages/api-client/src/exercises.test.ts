@@ -10,7 +10,15 @@ describe('getExercisesWithTags (FR-4.2/FR-2.2)', () => {
         case 'exercises':
           return createQueryBuilderMock({
             data: [
-              { id: 'ex-1', name: 'Bench Press', instructions: 'Push.', difficulty: 'beginner' },
+              {
+                id: 'ex-1',
+                name: 'Bench Press',
+                instructions: 'Push.',
+                difficulty: 'beginner',
+                category: 'strength',
+                mechanic: 'compound',
+              },
+              // Row from a database without migration 0010: no category/mechanic columns.
               { id: 'ex-2', name: 'Squat', instructions: null, difficulty: 'intermediate' },
             ],
             error: null,
@@ -60,6 +68,8 @@ describe('getExercisesWithTags (FR-4.2/FR-2.2)', () => {
         primaryMuscleKeys: ['chest'],
         secondaryMuscleKeys: ['triceps'],
         requiredEquipmentKeys: ['barbell'],
+        category: 'strength',
+        mechanic: 'compound',
       },
       {
         id: 'ex-2',
@@ -69,6 +79,8 @@ describe('getExercisesWithTags (FR-4.2/FR-2.2)', () => {
         primaryMuscleKeys: ['quadriceps'],
         secondaryMuscleKeys: [],
         requiredEquipmentKeys: [],
+        category: null,
+        mechanic: null,
       },
     ]);
   });

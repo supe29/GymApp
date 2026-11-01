@@ -28,7 +28,10 @@ export default function WorkoutHistoryScreen({ client = getSupabaseClient(), use
       if (result.error) {
         setError(result.error);
       } else {
-        setEntries(result.data ?? []);
+        // A session row is created as soon as a workout screen opens, so
+        // one the user backed out of without logging anything would show
+        // up as an empty entry; only list sessions with something in them.
+        setEntries((result.data ?? []).filter((e) => e.setLogs.length > 0 || e.session.status === 'completed'));
       }
       setLoaded(true);
     }

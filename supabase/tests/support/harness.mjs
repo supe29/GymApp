@@ -67,6 +67,17 @@ export async function applyExerciseSeed(db) {
   await db.exec(readFileSync(SEED_PATH, 'utf8'));
 }
 
+const FOOD_SEED_PATHS = ['food_items_seed.sql', 'food_items_barcode_demo_seed.sql'].map((f) =>
+  path.resolve(__dirname, '../../seed', f),
+);
+
+/** Applies the generated USDA food seed plus the barcode demo rows as the superuser role. */
+export async function applyFoodSeeds(db) {
+  for (const seedPath of FOOD_SEED_PATHS) {
+    await db.exec(readFileSync(seedPath, 'utf8'));
+  }
+}
+
 /** Runs `sql` as the bootstrapping superuser role, which bypasses RLS — for test setup/assertions, not for the behavior under test. */
 export async function asSuperuser(db, sql, params = []) {
   await db.query('reset role');

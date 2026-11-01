@@ -37,23 +37,25 @@ import {
   interactionReducer,
   type InteractionState,
 } from '../../interactionContract';
-import { MUSCLE_REGIONS } from '../../muscleRegions';
+import { MUSCLE_REGION_IDS } from '../../muscleRegions';
+import { pulseOpacity, regionPulsePeakOpacity } from '../../pulseAnimation';
 
 /**
  * A representative user session: rotate to look around, zoom in, select a
- * region, rotate further, select a different (overlapping) region, zoom
+ * region, rotate further, select a different region, zoom
  * out, reset. Both "renderers" below are two independent runs of the same
  * reducer against this exact script.
  */
 const SCRIPT: readonly InteractionAction[] = [
   { type: 'rotate', deltaYawTurns: 0.12, deltaPitchTurns: -0.05 },
   { type: 'zoom', deltaZoom: -0.2 },
-  { type: 'select', point: [0, 1.42, 0.1] }, // chest
+  { type: 'select', regionId: 'chest' },
   { type: 'rotate', deltaYawTurns: -0.3, deltaPitchTurns: 0.1 },
-  { type: 'select', point: [0.5, 1.3, 0.08] }, // biceps
+  { type: 'select', regionId: 'biceps' },
   { type: 'zoom', deltaZoom: 0.35 },
+  { type: 'face', side: 'back' },
   { type: 'reset' },
-  { type: 'select', point: [0, 0.92, -0.1] }, // glutes
+  { type: 'select', regionId: 'glutes' },
 ];
 
 const FIXED_NOW = 1_700_000_000_000;
@@ -62,7 +64,7 @@ function runScript(): InteractionState[] {
   const trace: InteractionState[] = [];
   let state = defaultInteractionState();
   for (const action of SCRIPT) {
-    state = interactionReducer(state, action, MUSCLE_REGIONS, FIXED_NOW);
+    state = interactionReducer(state, action, MUSCLE_REGION_IDS, FIXED_NOW);
     trace.push(state);
   }
   return trace;
@@ -142,5 +144,52 @@ describe('Cross-renderer parity: scripted select/rotate/zoom/reset sequence', ()
     writeFileSync(reportPath, lines.join('\n'), 'utf8');
 
     expect(trace.length).toBe(SCRIPT.length);
+  });
+});
+
+// Phase 13-era addition: the per-exercise region pulse (resolves
+// MuscleExplorerScreen's exercise-tap -> BodyModelProps.activeExerciseMuscles
+// -> shared/BodyModelScene.tsx path). Unlike SCRIPT above, this bypasses
+// interactionReducer entirely (see pulseAnimation.ts's header comment for
+// why) — parity here comes from pulseOpacity/regionPulsePeakOpacity being
+// pure functions that shared/BodyModelScene.tsx (the one Canvas-content
+// file both adapters render) calls identically, not from a reducer. Still
+// asserted explicitly, per this suite's own convention, rather than only
+// relied upon implicitly because the file happens to be shared.
+describe('Cross-renderer parity: per-exercise region pulse', () => {
+  const activeExerciseMuscles = { primary: ['chest'], secondary: ['shoulders', 'triceps'] };
+  const elapsedTimeSamples = [0, 0.25, 0.8, 1.6, 3.14159];
+
+  test('regionPulsePeakOpacity resolves every region identically across two independent runs', () => {
+    for (const regionId of MUSCLE_REGION_IDS) {
+      const run1 = regionPulsePeakOpacity(regionId, activeExerciseMuscles);
+      const run2 = regionPulsePeakOpacity(regionId, activeExerciseMuscles);
+      expect(run2).toBe(run1);
+    }
+  });
+
+  test('pulseOpacity produces identical values across two independent runs, for every region at every sampled time', () => {
+    for (const regionId of MUSCLE_REGION_IDS) {
+      const peak = regionPulsePeakOpacity(regionId, activeExerciseMuscles);
+      for (const t of elapsedTimeSamples) {
+        expect(pulseOpacity(t, peak)).toBe(pulseOpacity(t, peak));
+      }
+    }
+  });
+
+  test('combining with a static region-selection opacity (max of the two) is identical across two independent runs', () => {
+    // Mirrors RegionMesh's `Math.max(selected ? 0.35 : 0, pulse)` combine
+    // rule (decision #6 of the plan: tapping a region clears the active
+    // exercise, but while both could coexist for one frame the combine
+    // rule must still be parity-safe).
+    const selectedRegionId = 'chest'; // also this exercise's primary region
+    for (const regionId of MUSCLE_REGION_IDS) {
+      const peak = regionPulsePeakOpacity(regionId, activeExerciseMuscles);
+      const selected = regionId === selectedRegionId;
+      for (const t of elapsedTimeSamples) {
+        const combine = () => Math.max(selected ? 0.35 : 0, peak > 0 ? pulseOpacity(t, peak) : 0);
+        expect(combine()).toBe(combine());
+      }
+    }
   });
 });

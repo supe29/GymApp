@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import NumberStepper from '../../components/NumberStepper';
+
 export type ProgressionAction = 'increase_weight' | 'increase_reps' | 'hold';
 export type ProgressionSuggestionStatus = 'pending' | 'accepted' | 'declined' | 'overridden';
 
@@ -72,55 +74,23 @@ export default function ProgressionSuggestionCard({
           <View>
             <View style={styles.stepperRow}>
               <Text style={styles.stepperLabel}>Weight (kg)</Text>
-              <View style={styles.stepperControls}>
-                <Pressable
-                  testID={`progression-card-${exerciseId}-override-weight-dec`}
-                  style={styles.stepperButton}
-                  onPress={() => setOverrideWeightKg((v) => Math.max(0, v - WEIGHT_STEP_KG))}
-                  accessibilityRole="button"
-                  accessibilityLabel="Decrease override weight"
-                >
-                  <Text style={styles.stepperButtonText}>-</Text>
-                </Pressable>
-                <Text testID={`progression-card-${exerciseId}-override-weight-value`} style={styles.stepperValue}>
-                  {overrideWeightKg}
-                </Text>
-                <Pressable
-                  testID={`progression-card-${exerciseId}-override-weight-inc`}
-                  style={styles.stepperButton}
-                  onPress={() => setOverrideWeightKg((v) => v + WEIGHT_STEP_KG)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Increase override weight"
-                >
-                  <Text style={styles.stepperButtonText}>+</Text>
-                </Pressable>
-              </View>
+              <NumberStepper
+                testID={`progression-card-${exerciseId}-override-weight`}
+                label="override weight"
+                value={overrideWeightKg}
+                onChange={(v) => setOverrideWeightKg(v ?? 0)}
+                step={WEIGHT_STEP_KG}
+              />
             </View>
             <View style={styles.stepperRow}>
               <Text style={styles.stepperLabel}>Reps</Text>
-              <View style={styles.stepperControls}>
-                <Pressable
-                  testID={`progression-card-${exerciseId}-override-reps-dec`}
-                  style={styles.stepperButton}
-                  onPress={() => setOverrideReps((v) => Math.max(0, v - REPS_STEP))}
-                  accessibilityRole="button"
-                  accessibilityLabel="Decrease override reps"
-                >
-                  <Text style={styles.stepperButtonText}>-</Text>
-                </Pressable>
-                <Text testID={`progression-card-${exerciseId}-override-reps-value`} style={styles.stepperValue}>
-                  {overrideReps}
-                </Text>
-                <Pressable
-                  testID={`progression-card-${exerciseId}-override-reps-inc`}
-                  style={styles.stepperButton}
-                  onPress={() => setOverrideReps((v) => v + REPS_STEP)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Increase override reps"
-                >
-                  <Text style={styles.stepperButtonText}>+</Text>
-                </Pressable>
-              </View>
+              <NumberStepper
+                testID={`progression-card-${exerciseId}-override-reps`}
+                label="override reps"
+                value={overrideReps}
+                onChange={(v) => setOverrideReps(v == null ? 0 : Math.round(v))}
+                step={REPS_STEP}
+              />
             </View>
             <Pressable
               testID={`progression-card-${exerciseId}-override-confirm`}
@@ -174,16 +144,5 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   stepperRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   stepperLabel: { fontSize: 13, fontWeight: '600' },
-  stepperControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepperButton: {
-    backgroundColor: '#111',
-    borderRadius: 6,
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  stepperValue: { fontSize: 15, fontWeight: '600', minWidth: 36, textAlign: 'center' },
   resolvedText: { fontSize: 13, color: '#666', fontStyle: 'italic' },
 });

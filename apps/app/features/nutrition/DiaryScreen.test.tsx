@@ -153,6 +153,53 @@ describe('DiaryScreen (FR-7.1/FR-7.2/FR-7.3/FR-7.4/AC-9/AC-10)', () => {
     await waitFor(() => expect(getByTestId('diary-entry-entry-1')).toBeTruthy());
   });
 
+  test('a gram-based portion is entered as an amount in grams', async () => {
+    mockedApiClient.getFoodLogEntriesForDate.mockResolvedValue({ data: [], error: null });
+    mockedApiClient.getCurrentNutritionTargets.mockResolvedValue({ data: TARGETS, error: null });
+    mockedApiClient.searchFoodItems.mockResolvedValue({
+      data: [
+        {
+          id: 'food-2',
+          name: 'Chicken Breast, cooked',
+          brand: null,
+          barcode: null,
+          portionDescription: '100g',
+          caloriesPerPortion: 165,
+          proteinGPerPortion: 31,
+          carbsGPerPortion: 0,
+          fatGPerPortion: 3.6,
+          source: 'external',
+          createdByUserId: null,
+        },
+      ],
+      error: null,
+    });
+    mockedApiClient.logFoodEntry.mockResolvedValue({ data: null, error: 'stop here' });
+
+    const { getByTestId } = render(<DiaryScreen client={fakeClient} userId="user-1" />);
+    await waitFor(() => expect(getByTestId('diary-empty')).toBeTruthy());
+    fireEvent.press(getByTestId('diary-add-search-button'));
+    await waitFor(() => expect(getByTestId('food-search-screen')).toBeTruthy());
+    fireEvent.changeText(getByTestId('food-search-input'), 'chicken');
+    fireEvent.press(getByTestId('food-search-button'));
+    await waitFor(() => expect(getByTestId('food-search-result-food-2')).toBeTruthy());
+    fireEvent.press(getByTestId('food-search-result-food-2'));
+    await waitFor(() => expect(getByTestId('diary-confirm-portion')).toBeTruthy());
+
+    expect(getByTestId('diary-amount-value').props.value).toBe('100');
+    fireEvent.changeText(getByTestId('diary-amount-value'), '180');
+    expect(getByTestId('diary-portion-total').props.children.join('')).toBe('297 kcal');
+    fireEvent.press(getByTestId('diary-confirm-log-button'));
+
+    await waitFor(() =>
+      expect(mockedApiClient.logFoodEntry).toHaveBeenCalledWith(
+        fakeClient,
+        'user-1',
+        expect.objectContaining({ foodItemId: 'food-2', portionQuantity: 1.8 }),
+      ),
+    );
+  });
+
   test('AC-10: a barcode scan that finds nothing in the data source offers manual entry, never a dead end', async () => {
     mockedApiClient.getFoodLogEntriesForDate.mockResolvedValue({ data: [], error: null });
     mockedApiClient.getCurrentNutritionTargets.mockResolvedValue({ data: TARGETS, error: null });

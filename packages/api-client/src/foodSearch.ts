@@ -58,16 +58,86 @@ export async function searchFoodItems(
   client: GymSupabaseClient,
   query: string,
 ): Promise<ApiResult<PersistedFoodItem[]>> {
-  const { data, error } = await client
-    .from('food_items')
-    .select('*')
-    .ilike('name', `%${query}%`)
-    .order('name')
-    .limit(25);
+  const terms = searchTerms(query);
+  if (terms.length === 0) {
+    return { data: [], error: null };
+  }
+  // Every word must appear somewhere in the name, in any order: USDA names
+  // read "Chicken, broilers or fryers, breast, ..." so a single
+  // `%chicken breast%` substring would miss them. Two candidate queries —
+  // names starting with the first word, and names containing every word
+  // anywhere — so a common word ("rice") can't fill the candidate cap with
+  // alphabetically-early names that merely contain it. Then rank in JS.
+  const containsAll = (prefixFirst: boolean) => {
+    let request = client.from('food_items').select('*');
+    terms.forEach((term, i) => {
+      request = request.ilike('name', prefixFirst && i === 0 ? `${term}%` : `%${term}%`);
+    });
+    return request.order('name').limit(SEARCH_CANDIDATE_LIMIT);
+  };
+  const [prefixed, anywhere] = await Promise.all([containsAll(true), containsAll(false)]);
+  const error = prefixed.error ?? anywhere.error;
   if (error) {
     return result<PersistedFoodItem[]>(null, error);
   }
-  return { data: (data ?? []).map(toPersistedFoodItem), error: null };
+  const byId = new Map<string, FoodItemRow>();
+  for (const row of [...(prefixed.data ?? []), ...(anywhere.data ?? [])]) byId.set(row.id, row);
+  const ranked = rankByRelevance([...byId.values()].map(toPersistedFoodItem), terms);
+  return { data: ranked.slice(0, SEARCH_RESULT_LIMIT), error: null };
+}
+
+const SEARCH_RESULT_LIMIT = 25;
+const SEARCH_CANDIDATE_LIMIT = 200;
+
+function stem(word: string): string {
+  return word.length > 3 && word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word;
+}
+
+/**
+ * Lowercased words of the query with LIKE wildcards removed; a trailing
+ * plural "s" is dropped from longer words so "eggs" finds "Egg, whole".
+ */
+export function searchTerms(query: string): string[] {
+  return query
+    .toLowerCase()
+    .replace(/[%_\\]/g, ' ')
+    .split(/[\s,]+/)
+    .filter((word) => word.length > 0)
+    .map(stem);
+}
+
+/** Words that mark a plain, unprocessed form — what most people mean by "rice" or "eggs". */
+const BASIC_FORM = /\b(raw|cooked|roasted|boiled|plain|whole|fresh)\b/g;
+
+/**
+ * Most relevant first: names whose first word is the first search term
+ * ("Egg, whole" before "Eggplant"), then names where every term starts a
+ * word, then the most plain/basic-form words, then simpler names (fewer comma-separated
+ * qualifiers, then shorter).
+ */
+function rankByRelevance(items: PersistedFoodItem[], terms: string[]): PersistedFoodItem[] {
+  const score = (name: string): number[] => {
+    const lower = name.toLowerCase();
+    const words = lower.split(/[^a-z0-9%]+/).filter(Boolean);
+    const firstWord = stem(words[0] ?? '');
+    const startsAWord = (term: string) => words.some((w) => w.startsWith(term));
+    return [
+      firstWord === terms[0] ? 0 : startsAWord(terms[0]) ? 1 : 2,
+      terms.every(startsAWord) ? 0 : 1,
+      -(lower.match(BASIC_FORM)?.length ?? 0),
+      name.split(',').length,
+      name.length,
+    ];
+  };
+  const scores = new Map(items.map((item) => [item.id, score(item.name)]));
+  return [...items].sort((a, b) => {
+    const sa = scores.get(a.id)!;
+    const sb = scores.get(b.id)!;
+    for (let i = 0; i < sa.length; i += 1) {
+      if (sa[i] !== sb[i]) return sa[i] - sb[i];
+    }
+    return a.name.localeCompare(b.name);
+  });
 }
 
 /**

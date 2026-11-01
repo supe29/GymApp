@@ -22,6 +22,10 @@ export interface ExerciseWithTags {
   secondaryMuscleKeys: string[];
   /** Equipment-item keys (equipment_items.key) required to perform this exercise; empty = no equipment needed. */
   requiredEquipmentKeys: string[];
+  /** Source-dataset exercise type (exercises.category); null/absent if not seeded. */
+  category?: string | null;
+  /** 'compound' | 'isolation' (exercises.mechanic); null/absent if unknown. */
+  mechanic?: string | null;
 }
 
 /**

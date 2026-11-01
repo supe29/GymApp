@@ -9,10 +9,14 @@ import {
 import { filterByEquipmentSubset, filterByMuscleGroup, type ExerciseWithTags } from 'core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BodyModel, type BodyModelHandle } from 'three-model';
+import { BodyModel, type BodyModelHandle, type ModelSide } from 'three-model';
 
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import MuscleListFallback from './MuscleListFallback';
+
+/** Match the 3D model's highlight colors (packages/three-model shared/BodyModelScene.tsx). */
+const PRIMARY_MUSCLE_COLOR = '#e0442f';
+const SECONDARY_MUSCLE_COLOR = '#f0a33a';
 
 export interface MuscleExplorerScreenProps {
   client?: GymSupabaseClient;
@@ -37,6 +41,8 @@ export default function MuscleExplorerScreen({
   const [exercises, setExercises] = useState<ExerciseWithTags[]>([]);
   const [availableEquipmentKeys, setAvailableEquipmentKeys] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [activeExercise, setActiveExercise] = useState<ExerciseWithTags | null>(null);
+  const [side, setSide] = useState<ModelSide>('front');
   const bodyModelRef = useRef<BodyModelHandle>(null);
 
   useEffect(() => {
@@ -80,7 +86,7 @@ export default function MuscleExplorerScreen({
           accessibilityRole="button"
           accessibilityState={{ selected: viewMode === '3d' }}
         >
-          <Text style={styles.toggleText}>3D view</Text>
+          <Text style={[styles.toggleText, viewMode === '3d' && styles.toggleTextActive]}>3D view</Text>
         </Pressable>
         <Pressable
           testID="muscle-explorer-toggle-list"
@@ -90,22 +96,63 @@ export default function MuscleExplorerScreen({
           accessibilityLabel="List view (non-visual alternative to the 3D model)"
           accessibilityState={{ selected: viewMode === 'list' }}
         >
-          <Text style={styles.toggleText}>List view</Text>
+          <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>List view</Text>
         </Pressable>
       </View>
 
       <View style={styles.viewArea}>
         {viewMode === '3d' ? (
           <>
-            <BodyModel ref={bodyModelRef} onSelectionChange={setSelectedRegionId} />
-            <Pressable
-              testID="muscle-explorer-reset"
-              style={styles.resetButton}
-              onPress={() => bodyModelRef.current?.reset()}
-              accessibilityRole="button"
-            >
-              <Text style={styles.toggleText}>Reset view</Text>
-            </Pressable>
+            <BodyModel
+              ref={bodyModelRef}
+              onSelectionChange={(id) => {
+                setSelectedRegionId(id);
+                setActiveExercise(null);
+              }}
+              activeExerciseMuscles={
+                activeExercise
+                  ? { primary: activeExercise.primaryMuscleKeys, secondary: activeExercise.secondaryMuscleKeys }
+                  : null
+              }
+            />
+            <View style={styles.viewControls}>
+              <View style={styles.sideToggle}>
+                {(['front', 'back'] as const).map((s) => (
+                  <Pressable
+                    key={s}
+                    testID={`muscle-explorer-side-${s}`}
+                    style={[styles.sideButton, side === s && styles.sideButtonActive]}
+                    onPress={() => {
+                      bodyModelRef.current?.showSide(s);
+                      setSide(s);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show ${s}`}
+                    accessibilityState={{ selected: side === s }}
+                  >
+                    <Text style={[styles.sideButtonText, side === s && styles.toggleTextActive]}>
+                      {s === 'front' ? 'Front' : 'Back'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Pressable
+                testID="muscle-explorer-reset"
+                style={styles.resetButton}
+                onPress={() => {
+                  bodyModelRef.current?.reset();
+                  setSide('front');
+                  setActiveExercise(null);
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.toggleText, styles.toggleTextActive]}>Reset view</Text>
+              </Pressable>
+            </View>
+            {/* Required by the model's CC BY-SA licence (docs/licensing/anatomical-mesh-license.md). */}
+            <Text testID="muscle-explorer-model-credit" style={styles.modelCredit}>
+              3D anatomy adapted from Z-Anatomy (CC BY-SA 4.0), based on BodyParts3D © DBCLS (CC BY-SA 2.1 JP)
+            </Text>
           </>
         ) : (
           <MuscleListFallback
@@ -115,6 +162,20 @@ export default function MuscleExplorerScreen({
           />
         )}
       </View>
+
+      {viewMode === '3d' && activeExercise ? (
+        <View testID="muscle-explorer-legend" style={styles.viewNote}>
+          <View style={[styles.legendSwatch, { backgroundColor: PRIMARY_MUSCLE_COLOR }]} />
+          <Text style={styles.viewNoteText}>Primary</Text>
+          <View style={[styles.legendSwatch, { backgroundColor: SECONDARY_MUSCLE_COLOR }]} />
+          <Text style={styles.viewNoteText}>Secondary</Text>
+        </View>
+      ) : null}
+      {viewMode === '3d' && !selectedRegionId ? (
+        <View testID="muscle-explorer-hint" style={styles.viewNote}>
+          <Text style={styles.viewNoteText}>Tap a muscle to see exercises · drag to rotate</Text>
+        </View>
+      ) : null}
 
       {loaded && selectedRegionId ? (
         <View style={styles.resultsArea}>
@@ -129,8 +190,12 @@ export default function MuscleExplorerScreen({
               <Pressable
                 testID={`muscle-explorer-exercise-${item.id}`}
                 style={styles.exerciseRow}
-                onPress={() => onSelectExercise?.(item)}
+                onPress={() => {
+                  setActiveExercise(item);
+                  onSelectExercise?.(item);
+                }}
                 accessibilityRole="button"
+                accessibilityState={{ selected: activeExercise?.id === item.id }}
               >
                 <Text>{item.name}</Text>
               </Pressable>
@@ -159,12 +224,25 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   toggleButtonActive: { backgroundColor: '#111' },
-  toggleText: { fontWeight: '600' },
+  toggleText: { fontWeight: '600', color: '#111' },
+  toggleTextActive: { color: '#fff' },
   viewArea: { flex: 1, minHeight: 240 },
+  viewControls: { position: 'absolute', top: 8, right: 8, alignItems: 'flex-end', gap: 8 },
+  sideToggle: { flexDirection: 'row', borderWidth: 1, borderColor: '#111', borderRadius: 8, overflow: 'hidden' },
+  sideButton: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#fff' },
+  sideButtonActive: { backgroundColor: '#111' },
+  sideButtonText: { fontWeight: '600', color: '#111' },
+  viewNote: {
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  viewNoteText: { color: '#444', fontSize: 13 },
+  legendSwatch: { width: 12, height: 12, borderRadius: 3 },
+  modelCredit: { position: 'absolute', bottom: 4, left: 8, right: 8, color: '#777', fontSize: 10 },
   resetButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
     backgroundColor: '#111',
     borderRadius: 8,
     paddingVertical: 6,

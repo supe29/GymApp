@@ -7,13 +7,14 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 
-import { applyExerciseSeed, asSuperuser, bootDatabase } from './support/harness.mjs';
+import { applyExerciseSeed, applyFoodSeeds, asSuperuser, bootDatabase } from './support/harness.mjs';
 
 let db;
 
 before(async () => {
   ({ db } = await bootDatabase());
   await applyExerciseSeed(db);
+  await applyFoodSeeds(db);
 });
 
 after(async () => {
@@ -58,6 +59,22 @@ describe('Phase 3: data quality (every exercise has >=1 primary muscle and a dif
        where difficulty is null or difficulty not in ('beginner', 'intermediate', 'advanced')`,
     );
     assert.equal(rows[0].n, 0);
+  });
+
+  test('every exercise has a source category, and mechanic is compound/isolation/null (migration 0010)', async () => {
+    const { rows } = await asSuperuser(
+      db,
+      `select count(*)::int as n from public.exercises
+       where category is null or (mechanic is not null and mechanic not in ('compound', 'isolation'))`,
+    );
+    assert.equal(rows[0].n, 0);
+    const smr = await asSuperuser(db, `select category from public.exercises where name = 'Iliotibial Tract-SMR'`);
+    assert.equal(smr.rows[0].category, 'stretching');
+    const bench = await asSuperuser(
+      db,
+      `select category, mechanic from public.exercises where name = 'Barbell Bench Press - Medium Grip'`,
+    );
+    assert.deepEqual(bench.rows[0], { category: 'strength', mechanic: 'compound' });
   });
 
   test('every exercise_muscles row references a real exercise and a real muscle group', async () => {
@@ -206,5 +223,39 @@ describe('Phase 3: manual spot-check of a sample of exercises (acceptance criter
   test('"Decline Push-Up": source equipment null maps to zero equipment rows (no requirement, not "other")', async () => {
     const result = await tagsFor('Decline Push-Up');
     assert.deepEqual(result.equipment, []);
+  });
+});
+
+describe('Phase 9: USDA food seed (docs/licensing/food-dataset-licenses.md)', () => {
+  test('loads every generated food plus the barcode demo rows, all external and per 100g', async () => {
+    const { rows } = await asSuperuser(
+      db,
+      `select count(*) filter (where barcode is null)::int as generic,
+              count(*) filter (where barcode is not null)::int as barcoded,
+              count(*) filter (where source <> 'external' or created_by_user_id is not null)::int as non_external,
+              count(*) filter (where barcode is null and portion_description <> '100g')::int as non_100g
+       from public.food_items`,
+    );
+    assert.equal(rows[0].generic, 7448);
+    assert.equal(rows[0].barcoded, 5);
+    assert.equal(rows[0].non_external, 0);
+    assert.equal(rows[0].non_100g, 0);
+  });
+
+  test('spot-check: reference values match USDA SR Legacy', async () => {
+    const { rows } = await asSuperuser(
+      db,
+      `select calories_per_portion::float as kcal, protein_g_per_portion::float as protein,
+              carbs_g_per_portion::float as carbs, fat_g_per_portion::float as fat
+       from public.food_items where name = 'Chicken, broilers or fryers, breast, meat only, cooked, roasted'`,
+    );
+    assert.deepEqual(rows[0], { kcal: 165, protein: 31, carbs: 0, fat: 3.6 });
+  });
+
+  test('re-applying the food seeds does not duplicate rows', async () => {
+    const before_ = await asSuperuser(db, 'select count(*)::int as n from public.food_items');
+    await applyFoodSeeds(db);
+    const after_ = await asSuperuser(db, 'select count(*)::int as n from public.food_items');
+    assert.equal(after_.rows[0].n, before_.rows[0].n);
   });
 });

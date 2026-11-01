@@ -17,20 +17,20 @@ describe('SetLogger (FR-5.1/UX-4)', () => {
     expect(getByTestId('set-logger-ex-1-set-2-status').props.children).toBe('Pending sync…');
   });
 
-  test('UX-4: weight/reps/RPE are adjusted via steppers, not free text entry', () => {
+  test('UX-4: weight/reps/RPE are adjusted via +/- steppers', () => {
     const { getByTestId } = render(
       <SetLogger exerciseId="ex-1" exerciseName="Squat" loggedSets={[]} onLogSet={jest.fn()} />,
     );
 
     fireEvent.press(getByTestId('set-logger-ex-1-weight-inc'));
     fireEvent.press(getByTestId('set-logger-ex-1-weight-inc'));
-    expect(getByTestId('set-logger-ex-1-weight-value').props.children).toBe(5);
+    expect(getByTestId('set-logger-ex-1-weight-value').props.value).toBe('5');
 
     fireEvent.press(getByTestId('set-logger-ex-1-weight-dec'));
-    expect(getByTestId('set-logger-ex-1-weight-value').props.children).toBe(2.5);
+    expect(getByTestId('set-logger-ex-1-weight-value').props.value).toBe('2.5');
 
     fireEvent.press(getByTestId('set-logger-ex-1-reps-inc'));
-    expect(getByTestId('set-logger-ex-1-reps-value').props.children).toBe(1);
+    expect(getByTestId('set-logger-ex-1-reps-value').props.value).toBe('1');
   });
 
   test('weight stepper never goes below zero', () => {
@@ -38,16 +38,16 @@ describe('SetLogger (FR-5.1/UX-4)', () => {
       <SetLogger exerciseId="ex-1" exerciseName="Squat" loggedSets={[]} onLogSet={jest.fn()} />,
     );
     fireEvent.press(getByTestId('set-logger-ex-1-weight-dec'));
-    expect(getByTestId('set-logger-ex-1-weight-value').props.children).toBe(0);
+    expect(getByTestId('set-logger-ex-1-weight-value').props.value).toBe('0');
   });
 
   test('RPE stepper clears back to "-" rather than going negative', () => {
     const { getByTestId } = render(
       <SetLogger exerciseId="ex-1" exerciseName="Squat" loggedSets={[]} onLogSet={jest.fn()} />,
     );
-    expect(getByTestId('set-logger-ex-1-rpe-value').props.children).toBe('-');
+    expect(getByTestId('set-logger-ex-1-rpe-value').props.value).toBe('');
     fireEvent.press(getByTestId('set-logger-ex-1-rpe-dec'));
-    expect(getByTestId('set-logger-ex-1-rpe-value').props.children).toBe('-');
+    expect(getByTestId('set-logger-ex-1-rpe-value').props.value).toBe('');
   });
 
   test('pressing "Log set" calls onLogSet with the current stepper values', () => {
@@ -81,5 +81,37 @@ describe('SetLogger (FR-5.1/UX-4)', () => {
     expect(getByTestId('set-logger-ex-1-set-1-status').props.children).toBe("Couldn't sync");
     fireEvent.press(getByTestId('set-logger-ex-1-set-1-retry'));
     expect(onRetrySet).toHaveBeenCalledWith('s1');
+  });
+
+  test('values can be typed directly, so a big jump is one edit', () => {
+    const onLogSet = jest.fn();
+    const { getByTestId } = render(
+      <SetLogger exerciseId="ex-1" exerciseName="Squat" loggedSets={[]} onLogSet={onLogSet} />,
+    );
+    fireEvent.changeText(getByTestId('set-logger-ex-1-weight-value'), '102,5');
+    fireEvent.changeText(getByTestId('set-logger-ex-1-reps-value'), '5');
+    fireEvent.press(getByTestId('set-logger-ex-1-weight-inc'));
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+    expect(onLogSet).toHaveBeenCalledWith({ weightKg: 105, reps: 5, rpe: null });
+  });
+
+  test('shows the prescription and pre-fills reps/weight from it', () => {
+    const loggedSets: LoggedSetDisplay[] = [
+      { id: 's1', setIndex: 1, weightKg: 60, reps: 8, rpe: null, syncStatus: 'synced' },
+    ];
+    const { getByTestId } = render(
+      <SetLogger
+        exerciseId="ex-1"
+        exerciseName="Squat"
+        loggedSets={loggedSets}
+        onLogSet={jest.fn()}
+        target={{ sets: 4, repsMin: 8, repsMax: 12, weightKg: 60 }}
+      />,
+    );
+    expect(getByTestId('set-logger-ex-1-target').props.children.join('')).toBe(
+      'Target: 4 × 8–12 reps @ 60 kg · 1/4 sets done',
+    );
+    expect(getByTestId('set-logger-ex-1-weight-value').props.value).toBe('60');
+    expect(getByTestId('set-logger-ex-1-reps-value').props.value).toBe('8');
   });
 });

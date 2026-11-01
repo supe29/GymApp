@@ -84,6 +84,11 @@ export default function FoodSearchScreen({ client, onSelectFood, onCancel }: Foo
         )}
       />
 
+      {/* Credit requested by USDA for FoodData Central (CC0) — docs/licensing/food-dataset-licenses.md */}
+      <Text testID="food-search-attribution" style={styles.attribution}>
+        Generic food data: USDA Agricultural Research Service, FoodData Central.
+      </Text>
+
       <Pressable testID="food-search-cancel" style={styles.cancelButton} onPress={onCancel} accessibilityRole="button">
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </Pressable>
@@ -93,6 +98,7 @@ export default function FoodSearchScreen({ client, onSelectFood, onCancel }: Foo
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24 },
+  attribution: { fontSize: 11, color: '#777', marginTop: 8 },
   title: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
   searchRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   input: { flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10 },

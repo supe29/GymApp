@@ -149,13 +149,14 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     mockedApiClient.createPersonalRecord.mockResolvedValue({ data: null, error: null });
     await waitFor(() => expect(queryByTestId('session-screen-loading')).toBeNull());
 
-    // Log the first set for the prescribed Squat slot.
+    // Log the first set for the prescribed Squat slot — steppers start
+    // pre-filled from the prescription (50kg x 8), so +/- adjusts from there.
     fireEvent.press(getByTestId('set-logger-ex-1-weight-inc'));
     fireEvent.press(getByTestId('set-logger-ex-1-reps-inc'));
     fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
 
     expect(mockEnqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ workoutSessionId: 'wsession-1', exerciseId: 'ex-1', setIndex: 1, weightKg: 2.5, reps: 1 }),
+      expect.objectContaining({ workoutSessionId: 'wsession-1', exerciseId: 'ex-1', setIndex: 1, weightKg: 52.5, reps: 9 }),
     );
 
     // Mid-session substitution: replace Squat with Leg Press on the same slot.
@@ -235,6 +236,8 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     const { getByTestId } = await renderLoaded(onSessionCompleted);
 
     fireEvent.press(getByTestId('session-complete-button'));
+    // Nothing was logged locally, so completion asks for confirmation first.
+    fireEvent.press(getByTestId('session-complete-confirm'));
 
     await waitFor(() => expect(getByTestId('progression-card-ex-1')).toBeTruthy());
     const ex1Action = getByTestId('progression-card-ex-1-action').props.children.join('');
@@ -311,6 +314,8 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     }));
 
     fireEvent.press(getByTestId('session-complete-button'));
+    // Nothing was logged locally, so completion asks for confirmation first.
+    fireEvent.press(getByTestId('session-complete-confirm'));
 
     await waitFor(() => expect(getByTestId('new-pr-card-Squat-8')).toBeTruthy());
     expect(mockedApiClient.createPersonalRecord).toHaveBeenCalledWith(
@@ -322,5 +327,43 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
 
     fireEvent.press(getByTestId('session-suggestions-done'));
     await waitFor(() => expect(onSessionCompleted).toHaveBeenCalled());
+  });
+
+  test('completing with untouched exercises warns first, and "Keep training" cancels', async () => {
+    const onSessionCompleted = jest.fn();
+    const { getByTestId, queryByTestId } = await renderLoaded(onSessionCompleted);
+
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+    fireEvent.press(getByTestId('session-complete-button'));
+
+    expect(getByTestId('session-complete-warning')).toBeTruthy();
+    expect(mockedApiClient.completeWorkoutSession).not.toHaveBeenCalled();
+
+    fireEvent.press(getByTestId('session-complete-keep-training'));
+    expect(queryByTestId('session-complete-warning')).toBeNull();
+    expect(mockedApiClient.completeWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  test('shows each prescribed exercise target (sets x reps)', async () => {
+    const { getByTestId } = await renderLoaded(jest.fn());
+    expect(getByTestId('set-logger-ex-1-target').props.children.join('')).toBe(
+      'Target: 3 × 8–12 reps @ 50 kg · 0/3 sets done',
+    );
+  });
+
+  test('pre-fills weight from the most recent earlier set when the plan has no target weight', async () => {
+    // Once-value takes precedence over renderLoaded's default empty history.
+    mockedApiClient.getSetLogsForExercises.mockResolvedValueOnce({
+      data: [
+        { id: 'old-1', workoutSessionId: 'wsession-0', exerciseId: 'ex-2', setIndex: 1, weightKg: 40, reps: 10, rpe: null, loggedAt: '2026-01-01T10:00:00Z' },
+        { id: 'old-2', workoutSessionId: 'wsession-0', exerciseId: 'ex-2', setIndex: 2, weightKg: 42.5, reps: 9, rpe: null, loggedAt: '2026-01-01T10:05:00Z' },
+      ],
+      error: null,
+    });
+    const { getByTestId } = await renderLoaded();
+    expect(getByTestId('set-logger-ex-2-previous').props.children.join('')).toBe('Last time: 42.5 kg × 9');
+    expect(getByTestId('set-logger-ex-2-weight-value').props.value).toBe('42.5');
+    // ex-1 has a prescribed target weight, which wins over history.
+    expect(getByTestId('set-logger-ex-1-weight-value').props.value).toBe('50');
   });
 });

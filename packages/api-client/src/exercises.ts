@@ -22,7 +22,10 @@ export async function getExercisesWithTags(
 ): Promise<ApiResult<ExerciseWithTags[]>> {
   const [exercisesRes, exerciseMusclesRes, muscleGroupsRes, exerciseEquipmentRes, equipmentItemsRes] =
     await Promise.all([
-      client.from('exercises').select('id, name, instructions, difficulty'),
+      // `*` rather than a column list so this still works against a
+      // database that hasn't applied migration 0010 (category/mechanic)
+      // yet — those fields then come back undefined and map to null.
+      client.from('exercises').select('*'),
       client.from('exercise_muscles').select('exercise_id, muscle_group_id, role'),
       client.from('muscle_groups').select('id, key'),
       client.from('exercise_equipment').select('exercise_id, equipment_item_id'),
@@ -70,6 +73,8 @@ export async function getExercisesWithTags(
     primaryMuscleKeys: primaryMusclesByExercise.get(row.id) ?? [],
     secondaryMuscleKeys: secondaryMusclesByExercise.get(row.id) ?? [],
     requiredEquipmentKeys: equipmentByExercise.get(row.id) ?? [],
+    category: row.category ?? null,
+    mechanic: row.mechanic ?? null,
   }));
 
   return { data: exercises, error: null };

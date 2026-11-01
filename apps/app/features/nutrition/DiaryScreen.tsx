@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import EmptyState from '../../components/EmptyState';
+import NumberStepper from '../../components/NumberStepper';
 import BarcodeScanScreen from './BarcodeScanScreen';
 import CustomFoodForm from './CustomFoodForm';
 import FoodSearchScreen from './FoodSearchScreen';
@@ -45,6 +46,17 @@ function todayDateString(): string {
  * Owns the whole search/scan/confirm flow inline (no Phase 11 navigation
  * exists yet), the same pattern SessionScreen established in Phase 7/8.
  */
+function parseMetricPortion(description: string): { amount: number; unit: 'g' | 'ml' } | null {
+  const match = /^\s*(\d+(?:\.\d+)?)\s*(g|ml)\s*$/i.exec(description);
+  if (!match) return null;
+  return { amount: Number(match[1]), unit: match[2].toLowerCase() as 'g' | 'ml' };
+}
+
+function formatPortion(quantity: number, description: string): string {
+  const metric = parseMetricPortion(description);
+  return metric ? `${Math.round(quantity * metric.amount)} ${metric.unit}` : `${quantity} × ${description}`;
+}
+
 export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
   const [date] = useState(todayDateString());
   const [loaded, setLoaded] = useState(false);
@@ -55,7 +67,7 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
   const [mode, setMode] = useState<Mode>('diary');
   const [selectedFood, setSelectedFood] = useState<PersistedFoodItem | null>(null);
   const [mealSlot, setMealSlot] = useState<MealSlot>('breakfast');
-  const [portionQuantity, setPortionQuantity] = useState(1);
+  const [portionQuantity, setPortionQuantity] = useState<number | null>(1);
   const [barcodeNotice, setBarcodeNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -120,12 +132,12 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
     setMode('diary');
   }
 
-  function adjustPortion(delta: number) {
-    setPortionQuantity((prev) => Math.max(0.5, Math.round((prev + delta) * 2) / 2));
-  }
+  // Portions like "100g"/"250 ml" let the user enter the actual amount
+  // eaten instead of a multiplier; anything else ("1 slice") stays in portions.
+  const portionGrams = selectedFood ? parseMetricPortion(selectedFood.portionDescription) : null;
 
   async function handleConfirmLog() {
-    if (!selectedFood) return;
+    if (!selectedFood || portionQuantity == null || portionQuantity <= 0) return;
     setSaving(true);
     setError(null);
     const result = await logFoodEntry(client, userId, {
@@ -215,30 +227,41 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
           ))}
         </View>
 
-        <Text style={styles.label}>Portions</Text>
-        <View style={styles.stepperRow}>
-          <Pressable
-            testID="diary-portion-dec"
-            style={styles.stepperButton}
-            onPress={() => adjustPortion(-0.5)}
-            accessibilityRole="button"
-            accessibilityLabel="Decrease portions"
-          >
-            <Text style={styles.stepperButtonText}>-</Text>
-          </Pressable>
-          <Text testID="diary-portion-value" style={styles.stepperValue}>
-            {portionQuantity}
+        {portionGrams ? (
+          <>
+            <Text style={styles.label}>Amount ({portionGrams.unit})</Text>
+            <View style={styles.stepperRow}>
+              <NumberStepper
+                testID="diary-amount"
+                label="amount"
+                value={portionQuantity == null ? null : Math.round(portionQuantity * portionGrams.amount)}
+                onChange={(v) => setPortionQuantity(v == null ? null : v / portionGrams.amount)}
+                step={10}
+                min={1}
+                unit={portionGrams.unit}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>Portions</Text>
+            <View style={styles.stepperRow}>
+              <NumberStepper
+                testID="diary-portion"
+                label="portions"
+                value={portionQuantity}
+                onChange={setPortionQuantity}
+                step={0.5}
+                min={0.1}
+              />
+            </View>
+          </>
+        )}
+        {portionQuantity != null ? (
+          <Text testID="diary-portion-total" style={styles.subtle}>
+            {Math.round(selectedFood.caloriesPerPortion * portionQuantity)} kcal
           </Text>
-          <Pressable
-            testID="diary-portion-inc"
-            style={styles.stepperButton}
-            onPress={() => adjustPortion(0.5)}
-            accessibilityRole="button"
-            accessibilityLabel="Increase portions"
-          >
-            <Text style={styles.stepperButtonText}>+</Text>
-          </Pressable>
-        </View>
+        ) : null}
 
         {error ? (
           <Text testID="diary-error" style={styles.error} accessibilityRole="alert">
@@ -307,7 +330,7 @@ export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
                 <View>
                   <Text style={styles.entryName}>{entry.foodName}</Text>
                   <Text style={styles.entryMeta}>
-                    {entry.portionQuantity} × {entry.portionDescription} · {Math.round(entry.caloriesPerPortion * entry.portionQuantity)} kcal
+                    {formatPortion(entry.portionQuantity, entry.portionDescription)} · {Math.round(entry.caloriesPerPortion * entry.portionQuantity)} kcal
                   </Text>
                 </View>
                 <Pressable
@@ -387,16 +410,6 @@ const styles = StyleSheet.create({
   mealSlotText: { fontSize: 12, fontWeight: '600', color: '#111' },
   mealSlotTextActive: { color: '#fff' },
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  stepperButton: {
-    backgroundColor: '#111',
-    borderRadius: 8,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperButtonText: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  stepperValue: { fontSize: 18, fontWeight: '600', minWidth: 40, textAlign: 'center' },
   logButton: { backgroundColor: '#111', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 20 },
   logButtonText: { color: '#fff', fontWeight: '600' },
   cancelButton: { marginTop: 12, alignItems: 'center' },

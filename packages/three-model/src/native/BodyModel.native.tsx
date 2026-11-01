@@ -32,7 +32,7 @@ import {
   type InteractionAction,
   type InteractionState,
 } from '../interactionContract';
-import { MUSCLE_REGIONS } from '../muscleRegions';
+import { MUSCLE_REGION_IDS } from '../muscleRegions';
 import BodyModelScene from '../shared/BodyModelScene';
 
 function touchDistance(touches: readonly { pageX: number; pageY: number }[]): number | null {
@@ -42,28 +42,40 @@ function touchDistance(touches: readonly { pageX: number; pageY: number }[]): nu
 }
 
 const BodyModel = forwardRef<BodyModelHandle, BodyModelProps>(function BodyModel(
-  { onSelectionChange, onInteractionStateChange },
+  { onSelectionChange, onInteractionStateChange, activeExerciseMuscles },
   ref,
 ) {
   const [state, setState] = useState<InteractionState>(defaultInteractionState());
   const lastTouch = useRef<{ x: number; y: number } | null>(null);
   const lastPinchDistance = useRef<number | null>(null);
 
+  // The latest state, read synchronously by dispatch so the parent
+  // callbacks run outside React's setState updater (calling them inside it
+  // updated the parent screen mid-render).
+  const stateRef = useRef(state);
+
   const dispatch = useCallback(
     (action: InteractionAction) => {
-      setState((prev) => {
-        const next = interactionReducer(prev, action, MUSCLE_REGIONS, Date.now());
-        onInteractionStateChange?.(next);
-        if (action.type === 'select' && next.selection.regionId !== prev.selection.regionId) {
-          onSelectionChange?.(next.selection.regionId);
-        }
-        return next;
-      });
+      const prev = stateRef.current;
+      const next = interactionReducer(prev, action, MUSCLE_REGION_IDS, Date.now());
+      stateRef.current = next;
+      setState(next);
+      onInteractionStateChange?.(next);
+      if (action.type === 'select' && next.selection.regionId !== prev.selection.regionId) {
+        onSelectionChange?.(next.selection.regionId);
+      }
     },
     [onInteractionStateChange, onSelectionChange],
   );
 
-  useImperativeHandle(ref, () => ({ reset: () => dispatch({ type: 'reset' }) }), [dispatch]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      reset: () => dispatch({ type: 'reset' }),
+      showSide: (side) => dispatch({ type: 'face', side }),
+    }),
+    [dispatch],
+  );
 
   const panResponder = useRef(
     PanResponder.create({
@@ -113,7 +125,8 @@ const BodyModel = forwardRef<BodyModelHandle, BodyModelProps>(function BodyModel
       <Canvas camera={{ fov: 45, position: [0, 1, 3] }}>
         <BodyModelScene
           state={state}
-          onRegionPointerUp={(point) => dispatch({ type: 'select', point })}
+          onRegionTap={(regionId) => dispatch({ type: 'select', regionId })}
+          activeExerciseMuscles={activeExerciseMuscles}
         />
       </Canvas>
     </View>

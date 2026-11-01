@@ -83,6 +83,8 @@ export interface Database {
           name: string;
           instructions: string | null;
           difficulty: 'beginner' | 'intermediate' | 'advanced';
+          category: string | null;
+          mechanic: 'compound' | 'isolation' | null;
           created_at: string;
           updated_at: string;
         };

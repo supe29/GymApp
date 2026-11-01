@@ -30,7 +30,7 @@ import ProgressionSuggestionCard from '../plan/ProgressionSuggestionCard';
 import NewPersonalRecordCard from '../progress/NewPersonalRecordCard';
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
 import RestTimer from './RestTimer';
-import SetLogger, { type LoggedSetDisplay } from './SetLogger';
+import SetLogger, { type LoggedSetDisplay, type PreviousSet } from './SetLogger';
 
 export interface SessionScreenProps {
   client?: GymSupabaseClient;
@@ -48,6 +48,8 @@ interface SessionSlot {
   targetRepsMin: number;
   targetRepsMax: number | null;
   targetWeightKg: number | null;
+  /** The user's most recent logged set of this exercise from an earlier session, if any. */
+  previousSet?: PreviousSet | null;
   skipped: boolean;
   nextSetIndex: number;
   loggedSets: LoggedSetDisplay[];
@@ -108,6 +110,7 @@ export default function SessionScreen({
   const [availableEquipmentKeys, setAvailableEquipmentKeys] = useState<string[]>([]);
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [confirmingIncomplete, setConfirmingIncomplete] = useState(false);
   const [suggestionCards, setSuggestionCards] = useState<SuggestionCardState[]>([]);
   const [newPrCards, setNewPrCards] = useState<NewPrCardState[]>([]);
   const [unitPreference, setUnitPreference] = useState<UnitPreference>('metric');
@@ -154,8 +157,25 @@ export default function SessionScreen({
       setWorkoutSessionId(sessionResult.data.id);
 
       if (plannedResult.data) {
+        // Most recent previously logged set per exercise, so the logger can
+        // start from what the user actually lifted last time (a generated
+        // plan has no target weight until progression sets one).
+        const previousLogsRes = await getSetLogsForExercises(
+          client,
+          userId,
+          plannedResult.data.exercises.map((ex) => ex.exerciseId),
+        );
+        const previousSetByExercise = new Map<string, PreviousSet>();
+        const sortedPrevious = [...(previousLogsRes?.data ?? [])]
+          .filter((log) => log.workoutSessionId !== sessionResult.data?.id && log.weightKg != null)
+          .sort((a, b) => a.loggedAt.localeCompare(b.loggedAt));
+        for (const log of sortedPrevious) {
+          previousSetByExercise.set(log.exerciseId, { weightKg: log.weightKg, reps: log.reps });
+        }
+
         setSlots(
           plannedResult.data.exercises.map((ex) => ({
+            previousSet: previousSetByExercise.get(ex.exerciseId) ?? null,
             id: ex.id,
             exerciseId: ex.exerciseId,
             exerciseName: ex.exerciseName,
@@ -248,6 +268,7 @@ export default function SessionScreen({
               ...s,
               exerciseId: replacement.id,
               exerciseName: replacement.name,
+              previousSet: null,
               nextSetIndex: 1,
               loggedSets: [],
               showSubstituteOptions: false,
@@ -277,8 +298,21 @@ export default function SessionScreen({
     setShowAddExercise(false);
   }
 
+  // Exercises still in the plan for today that have nothing logged —
+  // completing now records them as missed for progression purposes.
+  const untouchedSlots = slots.filter((slot) => !slot.skipped && slot.loggedSets.length === 0);
+
+  function handleCompletePress() {
+    if (untouchedSlots.length > 0 && !confirmingIncomplete) {
+      setConfirmingIncomplete(true);
+      return;
+    }
+    void handleCompleteSession();
+  }
+
   async function handleCompleteSession() {
     if (!workoutSessionId) return;
+    setConfirmingIncomplete(false);
     setCompleting(true);
     const result = await completeWorkoutSession(client, userId, workoutSessionId);
     if (result.error) {
@@ -466,6 +500,17 @@ export default function SessionScreen({
               loggedSets={slot.loggedSets}
               onLogSet={(input) => handleLogSet(slot.id, input)}
               onRetrySet={handleRetrySet}
+              previousSet={slot.previousSet ?? undefined}
+              target={
+                slot.targetSets > 0
+                  ? {
+                      sets: slot.targetSets,
+                      repsMin: slot.targetRepsMin,
+                      repsMax: slot.targetRepsMax,
+                      weightKg: slot.targetWeightKg,
+                    }
+                  : undefined
+              }
             />
           )}
 
@@ -530,11 +575,34 @@ export default function SessionScreen({
         </View>
       ) : null}
 
+      {confirmingIncomplete ? (
+        <View testID="session-complete-warning" style={styles.warningBox} accessibilityRole="alert">
+          <Text style={styles.warningText}>
+            {untouchedSlots.length === 1
+              ? `${untouchedSlots[0].exerciseName} has no sets logged.`
+              : `${untouchedSlots.length} exercises have no sets logged.`}{' '}
+            Skip them or log sets first, or complete anyway and they will count as missed.
+          </Text>
+          <View style={styles.warningActions}>
+            <Pressable
+              testID="session-complete-keep-training"
+              onPress={() => setConfirmingIncomplete(false)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.actionText}>Keep training</Text>
+            </Pressable>
+            <Pressable testID="session-complete-confirm" onPress={handleCompleteSession} accessibilityRole="button">
+              <Text style={styles.actionText}>Complete anyway</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
       <Pressable
         testID="session-complete-button"
         style={styles.button}
         disabled={completing}
-        onPress={handleCompleteSession}
+        onPress={handleCompletePress}
         accessibilityRole="button"
       >
         <Text style={styles.buttonText}>{completing ? 'Completing…' : 'Complete session'}</Text>
@@ -547,6 +615,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 24 },
   title: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
   error: { color: '#b00020', marginBottom: 12 },
+  warningBox: { backgroundColor: '#fff4e5', borderRadius: 8, padding: 12, marginTop: 12 },
+  warningText: { color: '#5c3b00', marginBottom: 8 },
+  warningActions: { flexDirection: 'row', justifyContent: 'space-between' },
   slotContainer: { marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 12 },
   skippedRow: { paddingVertical: 10 },
   skippedText: { color: '#666', fontStyle: 'italic' },

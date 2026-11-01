@@ -19,17 +19,29 @@ jest.mock('api-client', () => ({
 // reset-button plumbing) treating BodyModel as an opaque, already-tested
 // unit — exactly the intended test boundary.
 const mockReset = jest.fn();
+const mockShowSide = jest.fn();
 jest.mock('three-model', () => {
   const react = jest.requireActual('react');
   const rn = jest.requireActual('react-native');
   return {
-    BodyModel: react.forwardRef((props: { onSelectionChange?: (id: string | null) => void }, ref: unknown) => {
-      react.useImperativeHandle(ref, () => ({ reset: mockReset }));
-      return react.createElement(rn.Pressable, {
-        testID: 'mock-body-model',
-        onPress: () => props.onSelectionChange?.('chest'),
-      });
-    }),
+    BodyModel: react.forwardRef(
+      (
+        props: {
+          onSelectionChange?: (id: string | null) => void;
+          activeExerciseMuscles?: { primary: readonly string[]; secondary: readonly string[] } | null;
+        },
+        ref: unknown,
+      ) => {
+        react.useImperativeHandle(ref, () => ({ reset: mockReset, showSide: mockShowSide }));
+        return react.createElement(rn.Pressable, {
+          testID: 'mock-body-model',
+          // Not a real Pressable prop — forwarded only so tests can assert
+          // what MuscleExplorerScreen is passing down via .props below.
+          activeExerciseMuscles: props.activeExerciseMuscles,
+          onPress: () => props.onSelectionChange?.('chest'),
+        });
+      },
+    ),
   };
 });
 
@@ -48,7 +60,7 @@ const exercises = [
     instructions: null,
     difficulty: 'beginner' as const,
     primaryMuscleKeys: ['chest'],
-    secondaryMuscleKeys: [],
+    secondaryMuscleKeys: ['lats'],
     requiredEquipmentKeys: ['barbell'],
   },
   {
@@ -128,6 +140,81 @@ describe('MuscleExplorerScreen (FR-4.1/FR-4.2/FR-4.4/UX-5/NFR-5)', () => {
     fireEvent.press(getByTestId('muscle-explorer-reset'));
 
     expect(mockReset).toHaveBeenCalled();
+  });
+
+  test('the Front/Back buttons turn the model and track which side is shown', async () => {
+    const { getByTestId } = await renderLoaded();
+    expect(getByTestId('muscle-explorer-side-front').props.accessibilityState).toEqual({ selected: true });
+
+    fireEvent.press(getByTestId('muscle-explorer-side-back'));
+
+    expect(mockShowSide).toHaveBeenLastCalledWith('back');
+    expect(getByTestId('muscle-explorer-side-back').props.accessibilityState).toEqual({ selected: true });
+
+    fireEvent.press(getByTestId('muscle-explorer-reset'));
+    expect(getByTestId('muscle-explorer-side-front').props.accessibilityState).toEqual({ selected: true });
+  });
+
+  test('credits the 3D model\'s CC BY-SA sources in the 3D view', async () => {
+    const { getByTestId } = await renderLoaded({ equipmentIds: ['eq-barbell'] });
+    const credit = getByTestId('muscle-explorer-model-credit').props.children as string;
+    expect(credit).toContain('Z-Anatomy (CC BY-SA 4.0)');
+    expect(credit).toContain('BodyParts3D');
+  });
+
+  test('shows a tap hint until a muscle is selected, and a primary/secondary legend for an active exercise', async () => {
+    const { getByTestId, queryByTestId } = await renderLoaded({ equipmentIds: ['eq-barbell'] });
+    expect(getByTestId('muscle-explorer-hint')).toBeTruthy();
+    expect(queryByTestId('muscle-explorer-legend')).toBeNull();
+
+    fireEvent.press(getByTestId('mock-body-model'));
+    await waitFor(() => expect(getByTestId('muscle-explorer-exercise-ex-1')).toBeTruthy());
+    expect(queryByTestId('muscle-explorer-hint')).toBeNull();
+
+    fireEvent.press(getByTestId('muscle-explorer-exercise-ex-1'));
+    expect(getByTestId('muscle-explorer-legend')).toBeTruthy();
+  });
+
+  test('tapping an exercise row passes its primary/secondary muscles to the 3D model as activeExerciseMuscles', async () => {
+    const { getByTestId } = await renderLoaded({ equipmentIds: ['eq-barbell'] });
+
+    fireEvent.press(getByTestId('mock-body-model'));
+    await waitFor(() => expect(getByTestId('muscle-explorer-exercise-ex-1')).toBeTruthy());
+
+    fireEvent.press(getByTestId('muscle-explorer-exercise-ex-1'));
+
+    expect(getByTestId('mock-body-model').props.activeExerciseMuscles).toEqual({
+      primary: ['chest'],
+      secondary: ['lats'],
+    });
+    expect(getByTestId('muscle-explorer-exercise-ex-1').props.accessibilityState).toEqual({ selected: true });
+  });
+
+  test('selecting a different region on the model clears the active exercise', async () => {
+    const { getByTestId } = await renderLoaded({ equipmentIds: ['eq-barbell'] });
+
+    fireEvent.press(getByTestId('mock-body-model')); // selects 'chest', filters the list
+    await waitFor(() => expect(getByTestId('muscle-explorer-exercise-ex-1')).toBeTruthy());
+    fireEvent.press(getByTestId('muscle-explorer-exercise-ex-1')); // activates it
+    expect(getByTestId('mock-body-model').props.activeExerciseMuscles).not.toBeNull();
+
+    fireEvent.press(getByTestId('mock-body-model')); // tap a region again -> should clear
+
+    expect(getByTestId('mock-body-model').props.activeExerciseMuscles).toBeNull();
+  });
+
+  test('the reset button clears the active exercise alongside the camera', async () => {
+    const { getByTestId } = await renderLoaded({ equipmentIds: ['eq-barbell'] });
+
+    fireEvent.press(getByTestId('mock-body-model'));
+    await waitFor(() => expect(getByTestId('muscle-explorer-exercise-ex-1')).toBeTruthy());
+    fireEvent.press(getByTestId('muscle-explorer-exercise-ex-1'));
+    expect(getByTestId('mock-body-model').props.activeExerciseMuscles).not.toBeNull();
+
+    fireEvent.press(getByTestId('muscle-explorer-reset'));
+
+    expect(mockReset).toHaveBeenCalled();
+    expect(getByTestId('mock-body-model').props.activeExerciseMuscles).toBeNull();
   });
 
   test('shows an empty state when no exercises match the selected muscle and equipment', async () => {

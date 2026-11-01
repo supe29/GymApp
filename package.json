@@ -12,6 +12,7 @@
     "e2e": "playwright test -c e2e/playwright.config.ts",
     "test:db": "node --test supabase/tests/adversarial.test.mjs supabase/tests/content.test.mjs",
     "content:import-exercises": "tsx data/exercises/scripts/importAndTag.ts",
+    "content:import-foods": "tsx data/food/scripts/importUsdaFoods.ts",
     "format": "prettier --check .",
     "format:write": "prettier --write ."
   },

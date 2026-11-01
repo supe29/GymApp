@@ -231,3 +231,116 @@ describe('generatePlan (FR-2.1/FR-2.2/FR-2.3/SR-3/SR-6/NFR-7)', () => {
     }
   });
 });
+
+describe('generatePlan exercise selection quality', () => {
+  function named(
+    name: string,
+    muscle: string,
+    extra: Partial<Pick<ExerciseWithTags, 'category' | 'mechanic' | 'requiredEquipmentKeys'>> = {},
+  ): ExerciseWithTags {
+    return {
+      ...exercise({ id: name, primaryMuscleKeys: [muscle], difficulty: 'beginner' }),
+      ...extra,
+    };
+  }
+
+  test('never prescribes stretching, cardio, plyometric, olympic or strongman exercises', () => {
+    const library = ALL_MUSCLE_GROUPS.flatMap((muscle) => [
+      named(`${muscle}-stretch`, muscle, { category: 'stretching' }),
+      named(`${muscle}-plyo`, muscle, { category: 'plyometrics' }),
+      named(`${muscle}-olympic`, muscle, { category: 'olympic_weightlifting' }),
+      named(`${muscle}-strongman`, muscle, { category: 'strongman' }),
+      named(`${muscle}-cardio`, muscle, { category: 'cardio' }),
+      named(`${muscle}-lift`, muscle, { category: 'strength' }),
+    ]);
+    const plan = generatePlan(baseInput({ exerciseLibrary: library, availableEquipmentKeys: [] }));
+    const names = plan.sessions.flatMap((s) => s.exercises.map((e) => e.exerciseName));
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((n) => n.endsWith('-lift'))).toBe(true);
+  });
+
+  test('prefers staple lifts over obscure variations for the same muscle', () => {
+    const library = [
+      named('Alternating Floor Press', 'chest', { category: 'powerlifting', mechanic: 'compound' }),
+      named('Barbell Bench Press - Medium Grip', 'chest', {
+        category: 'strength',
+        mechanic: 'compound',
+      }),
+    ];
+    const plan = generatePlan(
+      baseInput({
+        goal: 'strength',
+        trainingDaysPerWeek: 6,
+        exerciseLibrary: library,
+        availableEquipmentKeys: [],
+      }),
+    );
+    const push = plan.sessions.find((s) => s.exercises.length > 0)!;
+    expect(push.exercises[0].exerciseName).toBe('Barbell Bench Press - Medium Grip');
+  });
+
+  test('repeated days (A/B) rotate to different exercises when the library allows', () => {
+    const plan = generatePlan(baseInput({ trainingDaysPerWeek: 4 }));
+    expect(plan.splitType).toBe('upper_lower');
+    const [upperA, , upperB] = plan.sessions;
+    const aIds = upperA.exercises.map((e) => e.exerciseId);
+    const bIds = upperB.exercises.map((e) => e.exerciseId);
+    expect(aIds.some((id) => !bIds.includes(id))).toBe(true);
+    expect(bIds.filter((id) => aIds.includes(id))).toEqual([]);
+  });
+
+  test('isolation exercises get at most 3 sets and at least an 8-12 rep range', () => {
+    const library = ALL_MUSCLE_GROUPS.map((muscle) =>
+      named(`${muscle}-iso`, muscle, { mechanic: 'isolation' }),
+    );
+    const plan = generatePlan(
+      baseInput({
+        goal: 'strength',
+        fitnessLevel: 'advanced',
+        exerciseLibrary: library,
+        availableEquipmentKeys: [],
+      }),
+    );
+    for (const e of plan.sessions.flatMap((s) => s.exercises)) {
+      expect(e.targetSets).toBeLessThanOrEqual(3);
+      expect(e.targetRepsMin).toBeGreaterThanOrEqual(8);
+      expect(e.targetRepsMax).toBeGreaterThanOrEqual(12);
+    }
+  });
+});
+
+describe('generatePlan session fill', () => {
+  test('a muscle group with no compatible exercise does not leave the session short', () => {
+    // Only quadriceps and glutes have bodyweight options; the rest of the
+    // Lower template needs equipment the user doesn't have.
+    const library = [
+      ...['quadriceps', 'glutes'].flatMap((muscle) =>
+        [1, 2, 3].map((n) => exercise({ id: `${muscle}-bw-${n}`, primaryMuscleKeys: [muscle], difficulty: 'beginner' })),
+      ),
+      ...['hamstrings', 'calves', 'adductors', 'abductors', 'abdominals', 'lower_back'].map((muscle) =>
+        exercise({ id: `${muscle}-machine`, primaryMuscleKeys: [muscle], difficulty: 'beginner', requiredEquipmentKeys: ['machine'] }),
+      ),
+    ];
+    const plan = generatePlan(
+      baseInput({ trainingDaysPerWeek: 4, exerciseLibrary: library, availableEquipmentKeys: [] }),
+    );
+    const lower = plan.sessions.find((s) => s.name.startsWith('Lower'))!;
+    expect(lower.exercises).toHaveLength(6);
+    expect(lower.exercises.every((e) => e.exerciseId.includes('-bw-'))).toBe(true);
+  });
+});
+
+describe('generatePlan session fill and SR-3', () => {
+  test('fill passes never add an advanced exercise for a beginner just to lengthen a session', () => {
+    const library = [
+      exercise({ id: 'quads-safe', primaryMuscleKeys: ['quadriceps'], difficulty: 'beginner' }),
+      exercise({ id: 'quads-advanced', primaryMuscleKeys: ['quadriceps'], difficulty: 'advanced' }),
+    ];
+    const plan = generatePlan(
+      baseInput({ fitnessLevel: 'beginner', trainingDaysPerWeek: 3, exerciseLibrary: library, availableEquipmentKeys: [] }),
+    );
+    const ids = plan.sessions.flatMap((s) => s.exercises.map((e) => e.exerciseId));
+    expect(ids).toContain('quads-safe');
+    expect(ids).not.toContain('quads-advanced');
+  });
+});

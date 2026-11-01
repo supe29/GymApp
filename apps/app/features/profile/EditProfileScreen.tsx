@@ -32,6 +32,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import RegeneratePlanPrompt from '../plan/RegeneratePlanPrompt';
 import EquipmentChecklist from './EquipmentChecklist';
+import { FITNESS_LEVEL_DISPLAY_LABELS, GOAL_DISPLAY_LABELS, SEX_DISPLAY_LABELS } from './profileLabels';
 
 export interface EditProfileScreenProps {
   client?: GymSupabaseClient;
@@ -358,7 +359,7 @@ export default function EditProfileScreen({
           <Chip
             key={option}
             testID={`edit-profile-sex-${option}`}
-            label={option}
+            label={SEX_DISPLAY_LABELS[option]}
             selected={biologicalSex === option}
             onPress={() => setBiologicalSex(option)}
           />
@@ -371,7 +372,7 @@ export default function EditProfileScreen({
           <Chip
             key={option}
             testID={`edit-profile-fitness-${option}`}
-            label={option}
+            label={FITNESS_LEVEL_DISPLAY_LABELS[option]}
             selected={fitnessLevel === option}
             onPress={() => setFitnessLevel(option)}
           />
@@ -384,7 +385,7 @@ export default function EditProfileScreen({
           <Chip
             key={option}
             testID={`edit-profile-goal-${option}`}
-            label={option}
+            label={GOAL_DISPLAY_LABELS[option]}
             selected={goal === option}
             onPress={() => setGoal(option)}
           />

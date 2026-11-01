@@ -90,7 +90,7 @@ are silently left open:
 | OQ-10 (3D parity tolerance) | Resolved, Phase 4 (recorded Phase 13) — `/docs/decisions/OQ-10-3d-parity-tolerance.md` |
 | OQ-11 (connectivity retry policy) | Resolved, Phase 7 — `/docs/decisions/OQ-11-connectivity-retry-policy.md` |
 | OQ-12 (external lookup allow-list) | Explicitly deferred, Phase 13 — `/docs/decisions/OQ-12-external-lookup-allowlist.md` |
-| OQ-13 (licensing go/no-go) | Resolved (exercise dataset + 3D mesh signed off; food dataset explicitly deferred with sign-off) — `/docs/licensing/go-no-go-checklist.md` |
+| OQ-13 (licensing go/no-go) | Resolved (exercise dataset + 3D mesh signed off; food dataset explicitly deferred with sign-off). Update 2026-10-31: generic foods now USDA FoodData Central, review recorded, **owner sign-off pending**; barcode data still unreviewed. Update 2026-11-01: 3D mesh replaced by Z-Anatomy (CC BY-SA, signed off); **before store release, confirm BodyParts3D derivative terms with DBCLS** (see `/docs/licensing/anatomical-mesh-license.md`) — `/docs/licensing/go-no-go-checklist.md` |
 | OQ-14 (plan version revert) | Resolved, Phase 13 — `/docs/decisions/OQ-14-plan-version-revert.md` |
 
 `intent.md`-carried strategic open questions (target market/region,

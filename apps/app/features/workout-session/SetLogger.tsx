@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import NumberStepper from '../../components/NumberStepper';
+
 export type SetSyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
 export interface LoggedSetDisplay {
@@ -18,6 +20,28 @@ export interface SetLoggerProps {
   loggedSets: LoggedSetDisplay[];
   onLogSet: (input: { weightKg: number | null; reps: number | null; rpe: number | null }) => void;
   onRetrySet?: (id: string) => void;
+  /** The plan's prescription for this exercise, when there is one (plan-attached sessions). */
+  target?: SetTarget;
+  /** The user's most recent set of this exercise from an earlier session. */
+  previousSet?: PreviousSet;
+}
+
+export interface PreviousSet {
+  weightKg: number | null;
+  reps: number | null;
+}
+
+export interface SetTarget {
+  sets: number;
+  repsMin: number;
+  repsMax: number | null;
+  weightKg: number | null;
+}
+
+function formatTarget(target: SetTarget): string {
+  const reps = target.repsMax != null && target.repsMax !== target.repsMin ? `${target.repsMin}–${target.repsMax}` : `${target.repsMin}`;
+  const weight = target.weightKg != null ? ` @ ${target.weightKg} kg` : '';
+  return `Target: ${target.sets} × ${reps} reps${weight}`;
 }
 
 const WEIGHT_STEP_KG = 2.5;
@@ -33,8 +57,8 @@ const SYNC_STATUS_LABEL: Record<SetSyncStatus, string> = {
 
 /**
  * FR-5.1/UX-4: logs sets for one exercise within a session, with large
- * numeric steppers rather than free-text entry (one-handed/glanceable gym
- * use). Purely presentational/orchestration — persistence and the
+ * +/- steppers whose values can also be typed (one-handed/glanceable gym
+ * use, without dozens of taps for a big change). Purely presentational/orchestration — persistence and the
  * offline-sync queue are owned by the parent screen (SessionScreen /
  * FreeformSessionScreen), which supplies the already-logged sets
  * (including their sync status) and receives new entries via onLogSet.
@@ -45,24 +69,15 @@ export default function SetLogger({
   loggedSets,
   onLogSet,
   onRetrySet,
+  target,
+  previousSet,
 }: SetLoggerProps) {
-  const [weightKg, setWeightKg] = useState<number | null>(null);
-  const [reps, setReps] = useState<number | null>(null);
+  // Pre-filled from the prescription (else last time's weight) so a
+  // typical set is just "Log set"; values persist after logging, so
+  // repeat sets need no re-entry.
+  const [weightKg, setWeightKg] = useState<number | null>(target?.weightKg ?? previousSet?.weightKg ?? null);
+  const [reps, setReps] = useState<number | null>(target?.repsMin ?? null);
   const [rpe, setRpe] = useState<number | null>(null);
-
-  function adjustWeight(delta: number) {
-    setWeightKg((prev) => Math.max(0, (prev ?? 0) + delta));
-  }
-  function adjustReps(delta: number) {
-    setReps((prev) => Math.max(0, (prev ?? 0) + delta));
-  }
-  function adjustRpe(delta: number) {
-    setRpe((prev) => {
-      const next = (prev ?? 0) + delta;
-      if (next <= 0) return null;
-      return Math.min(10, next);
-    });
-  }
 
   function handleLogSet() {
     onLogSet({ weightKg, reps, rpe });
@@ -71,6 +86,18 @@ export default function SetLogger({
   return (
     <View style={styles.container} testID={`set-logger-${exerciseId}`}>
       <Text style={styles.title}>{exerciseName}</Text>
+      {target ? (
+        <Text testID={`set-logger-${exerciseId}-target`} style={styles.targetText}>
+          {formatTarget(target)}
+          {' · '}
+          {Math.min(loggedSets.length, target.sets)}/{target.sets} sets done
+        </Text>
+      ) : null}
+      {previousSet?.weightKg != null ? (
+        <Text testID={`set-logger-${exerciseId}-previous`} style={styles.targetText}>
+          Last time: {previousSet.weightKg} kg × {previousSet.reps ?? '-'}
+        </Text>
+      ) : null}
 
       {loggedSets.map((set) => (
         <View key={set.id} testID={`set-logger-${exerciseId}-set-${set.setIndex}`} style={styles.loggedRow}>
@@ -99,83 +126,39 @@ export default function SetLogger({
 
       <View style={styles.stepperRow}>
         <Text style={styles.stepperLabel}>Weight (kg)</Text>
-        <View style={styles.stepperControls}>
-          <Pressable
-            testID={`set-logger-${exerciseId}-weight-dec`}
-            style={styles.stepperButton}
-            onPress={() => adjustWeight(-WEIGHT_STEP_KG)}
-            accessibilityRole="button"
-            accessibilityLabel="Decrease weight"
-          >
-            <Text style={styles.stepperButtonText}>-</Text>
-          </Pressable>
-          <Text testID={`set-logger-${exerciseId}-weight-value`} style={styles.stepperValue}>
-            {weightKg ?? 0}
-          </Text>
-          <Pressable
-            testID={`set-logger-${exerciseId}-weight-inc`}
-            style={styles.stepperButton}
-            onPress={() => adjustWeight(WEIGHT_STEP_KG)}
-            accessibilityRole="button"
-            accessibilityLabel="Increase weight"
-          >
-            <Text style={styles.stepperButtonText}>+</Text>
-          </Pressable>
-        </View>
+        <NumberStepper
+          testID={`set-logger-${exerciseId}-weight`}
+          label="weight"
+          value={weightKg}
+          onChange={setWeightKg}
+          step={WEIGHT_STEP_KG}
+        />
       </View>
 
       <View style={styles.stepperRow}>
         <Text style={styles.stepperLabel}>Reps</Text>
-        <View style={styles.stepperControls}>
-          <Pressable
-            testID={`set-logger-${exerciseId}-reps-dec`}
-            style={styles.stepperButton}
-            onPress={() => adjustReps(-REPS_STEP)}
-            accessibilityRole="button"
-            accessibilityLabel="Decrease reps"
-          >
-            <Text style={styles.stepperButtonText}>-</Text>
-          </Pressable>
-          <Text testID={`set-logger-${exerciseId}-reps-value`} style={styles.stepperValue}>
-            {reps ?? 0}
-          </Text>
-          <Pressable
-            testID={`set-logger-${exerciseId}-reps-inc`}
-            style={styles.stepperButton}
-            onPress={() => adjustReps(REPS_STEP)}
-            accessibilityRole="button"
-            accessibilityLabel="Increase reps"
-          >
-            <Text style={styles.stepperButtonText}>+</Text>
-          </Pressable>
-        </View>
+        <NumberStepper
+          testID={`set-logger-${exerciseId}-reps`}
+          label="reps"
+          value={reps}
+          onChange={(v) => setReps(v == null ? null : Math.round(v))}
+          step={REPS_STEP}
+        />
       </View>
 
       <View style={styles.stepperRow}>
         <Text style={styles.stepperLabel}>RPE (optional)</Text>
-        <View style={styles.stepperControls}>
-          <Pressable
-            testID={`set-logger-${exerciseId}-rpe-dec`}
-            style={styles.stepperButton}
-            onPress={() => adjustRpe(-RPE_STEP)}
-            accessibilityRole="button"
-            accessibilityLabel="Decrease RPE"
-          >
-            <Text style={styles.stepperButtonText}>-</Text>
-          </Pressable>
-          <Text testID={`set-logger-${exerciseId}-rpe-value`} style={styles.stepperValue}>
-            {rpe ?? '-'}
-          </Text>
-          <Pressable
-            testID={`set-logger-${exerciseId}-rpe-inc`}
-            style={styles.stepperButton}
-            onPress={() => adjustRpe(RPE_STEP)}
-            accessibilityRole="button"
-            accessibilityLabel="Increase RPE"
-          >
-            <Text style={styles.stepperButtonText}>+</Text>
-          </Pressable>
-        </View>
+        <NumberStepper
+          testID={`set-logger-${exerciseId}-rpe`}
+          label="RPE"
+          value={rpe}
+          onChange={setRpe}
+          step={RPE_STEP}
+          min={RPE_STEP}
+          max={10}
+          clearable
+          placeholder="-"
+        />
       </View>
 
       <Pressable testID={`set-logger-${exerciseId}-log-button`} style={styles.logButton} onPress={handleLogSet} accessibilityRole="button">
@@ -187,7 +170,8 @@ export default function SetLogger({
 
 const styles = StyleSheet.create({
   container: { marginBottom: 20 },
-  title: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  title: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+  targetText: { fontSize: 14, color: '#444', marginBottom: 8 },
   loggedRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 8 },
   loggedText: { fontSize: 14 },
   statusText: { fontSize: 12, color: '#666' },
@@ -195,17 +179,6 @@ const styles = StyleSheet.create({
   retryText: { fontSize: 12, color: '#111', fontWeight: '600', textDecorationLine: 'underline' },
   stepperRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
   stepperLabel: { fontSize: 14, fontWeight: '600' },
-  stepperControls: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepperButton: {
-    backgroundColor: '#111',
-    borderRadius: 8,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperButtonText: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  stepperValue: { fontSize: 18, fontWeight: '600', minWidth: 40, textAlign: 'center' },
   logButton: {
     backgroundColor: '#111',
     borderRadius: 8,

@@ -13,6 +13,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import DisclaimerScreen from '../legal/DisclaimerScreen';
 import EquipmentChecklist from './EquipmentChecklist';
+import { FITNESS_LEVEL_DISPLAY_LABELS, GOAL_DISPLAY_LABELS, SEX_DISPLAY_LABELS } from './profileLabels';
 import OnboardingProgressIndicator from './OnboardingProgressIndicator';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 
@@ -43,19 +44,6 @@ interface Draft {
 }
 
 const STEP_LABELS = ['Basic info', 'Fitness level', 'Goal', 'Training days', 'Equipment', 'Disclaimer'];
-
-const SEX_DISPLAY_LABELS: Record<BiologicalSex, string> = {
-  male: 'Male',
-  female: 'Female',
-  prefer_not_to_say: 'Prefer not to say',
-};
-
-const GOAL_DISPLAY_LABELS: Record<Goal, string> = {
-  fat_loss: 'Fat loss',
-  muscle_gain: 'Muscle gain',
-  strength: 'Strength',
-  general_fitness: 'General fitness',
-};
 
 function Chip({
   label,
@@ -236,7 +224,7 @@ export default function ProfileSetupFlow({
             <Chip
               key={option}
               testID={`onboarding-fitness-${option}`}
-              label={option}
+              label={FITNESS_LEVEL_DISPLAY_LABELS[option]}
               selected={draft.fitnessLevel === option}
               onPress={() => setDraft((d) => ({ ...d, fitnessLevel: option }))}
             />

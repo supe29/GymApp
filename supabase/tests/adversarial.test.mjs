@@ -60,7 +60,7 @@ after(async () => {
 // ---------------------------------------------------------------------
 
 describe('migration apply', () => {
-  test('all 9 migrations apply in order and produce the expected schema', async () => {
+  test('all 10 migrations apply in order and produce the expected schema', async () => {
     const { rows } = await asSuperuser(
       db,
       `select table_name from information_schema.tables where table_schema = 'public' order by table_name`,
@@ -102,7 +102,7 @@ describe('migration apply', () => {
       second.db,
       `select count(*)::int as n from information_schema.tables where table_schema = 'public'`,
     );
-    assert.equal(second.applied.length, 9);
+    assert.equal(second.applied.length, 10);
     assert.ok(rows[0].n >= 18);
     await second.db.close();
   });

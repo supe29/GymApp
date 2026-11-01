@@ -28,6 +28,7 @@ export default function WeightTrendScreen({ client, userId }: WeightTrendScreenP
   const [entries, setEntries] = useState<PersistedWeightEntry[]>([]);
   const [unitPreference, setUnitPreference] = useState<UnitPreference>('metric');
   const [showLogModal, setShowLogModal] = useState(false);
+  const [profileWeightKg, setProfileWeightKg] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const [entriesRes, profileRes] = await Promise.all([getWeightEntries(client, userId), getProfile(client, userId)]);
@@ -38,6 +39,7 @@ export default function WeightTrendScreen({ client, userId }: WeightTrendScreenP
     }
     if (profileRes.data) {
       setUnitPreference(profileRes.data.unit_preference);
+      setProfileWeightKg(profileRes.data.weight_kg);
     }
     setLoaded(true);
   }, [client, userId]);
@@ -74,7 +76,10 @@ export default function WeightTrendScreen({ client, userId }: WeightTrendScreenP
   }
 
   if (showLogModal) {
-    return <LogWeightModal unitPreference={unitPreference} onSubmit={handleLogWeight} onCancel={() => setShowLogModal(false)} />;
+    return <LogWeightModal
+        unitPreference={unitPreference}
+        initialWeightKg={entries.length > 0 ? entries[entries.length - 1].weightKg : profileWeightKg}
+        onSubmit={handleLogWeight} onCancel={() => setShowLogModal(false)} />;
   }
 
   const displayWeights = entries.map((e) => (unitPreference === 'imperial' ? kgToLb(e.weightKg) : e.weightKg));
@@ -110,24 +115,26 @@ export default function WeightTrendScreen({ client, userId }: WeightTrendScreenP
       ) : entries.length === 1 ? (
         <Text testID="weight-trend-chart-pending">Log one more weight entry to see a trend chart.</Text>
       ) : (
-        <Svg
-          testID="weight-trend-chart"
-          width={CHART_WIDTH}
-          height={CHART_HEIGHT}
+        // The accessible label lives on a wrapping View: react-native-svg's
+        // web Svg forwards `accessible` straight to the DOM as an invalid attribute.
+        <View
           accessible
+          accessibilityRole="image"
           accessibilityLabel={`Weight trend chart. ${entries.length} entries, ranging from ${Math.round(min)} to ${Math.round(max)} ${unitPreference === 'imperial' ? 'lb' : 'kg'}. See the list below for exact values.`}
         >
-          <Polyline
-            testID="weight-trend-chart-line"
-            points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-            fill="none"
-            stroke="#111"
-            strokeWidth={2}
-          />
-          {points.map((p, i) => (
-            <Circle key={entries[i].id} cx={p.x} cy={p.y} r={4} fill="#111" />
-          ))}
-        </Svg>
+          <Svg testID="weight-trend-chart" width={CHART_WIDTH} height={CHART_HEIGHT}>
+            <Polyline
+              testID="weight-trend-chart-line"
+              points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke="#111"
+              strokeWidth={2}
+            />
+            {points.map((p, i) => (
+              <Circle key={entries[i].id} cx={p.x} cy={p.y} r={4} fill="#111" />
+            ))}
+          </Svg>
+        </View>
       )}
 
       {entries.map((entry) => (

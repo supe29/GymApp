@@ -58,6 +58,16 @@ function sqlString(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+function sqlNullable(value: string | null): string {
+  return value === null ? 'null' : sqlString(value);
+}
+
+// Source categories are space-separated ("olympic weightlifting"); the
+// exercises.category check constraint (migration 0010) uses snake_case.
+function mapCategory(category: string): string {
+  return category.replace(/\s+/g, '_');
+}
+
 function mapDifficulty(level: SourceExercise['level']): 'beginner' | 'intermediate' | 'advanced' {
   return level === 'expert' ? 'advanced' : level;
 }
@@ -83,7 +93,14 @@ function main() {
   const unmappedMuscles = new Set<string>();
   const unmappedEquipment = new Set<string>();
 
-  const exerciseRows: { id: string; name: string; instructions: string; difficulty: string }[] = [];
+  const exerciseRows: {
+    id: string;
+    name: string;
+    instructions: string;
+    difficulty: string;
+    category: string;
+    mechanic: string | null;
+  }[] = [];
   const exerciseMuscleRows: { exerciseId: string; muscleGroupId: string; role: string }[] = [];
   const exerciseEquipmentRows: { exerciseId: string; equipmentItemId: string }[] = [];
 
@@ -94,6 +111,8 @@ function main() {
       name: src.name,
       instructions: src.instructions.join('\n'),
       difficulty: mapDifficulty(src.level),
+      category: mapCategory(src.category),
+      mechanic: src.mechanic,
     });
 
     // Data-quality curation: a handful of upstream exercises (e.g.
@@ -204,17 +223,17 @@ function main() {
   lines.push('');
 
   lines.push(`-- Exercises (${exerciseRows.length} rows)`);
-  lines.push('insert into public.exercises (id, name, instructions, difficulty) values');
+  lines.push('insert into public.exercises (id, name, instructions, difficulty, category, mechanic) values');
   lines.push(
     exerciseRows
       .map(
         (r, i) =>
-          `  (${sqlString(r.id)}, ${sqlString(r.name)}, ${sqlString(r.instructions)}, ${sqlString(r.difficulty)})${i === exerciseRows.length - 1 ? '' : ','}`,
+          `  (${sqlString(r.id)}, ${sqlString(r.name)}, ${sqlString(r.instructions)}, ${sqlString(r.difficulty)}, ${sqlString(r.category)}, ${sqlNullable(r.mechanic)})${i === exerciseRows.length - 1 ? '' : ','}`,
       )
       .join('\n'),
   );
   lines.push(
-    'on conflict (id) do update set name = excluded.name, instructions = excluded.instructions, difficulty = excluded.difficulty;',
+    'on conflict (id) do update set name = excluded.name, instructions = excluded.instructions, difficulty = excluded.difficulty, category = excluded.category, mechanic = excluded.mechanic;',
   );
   lines.push('');
 

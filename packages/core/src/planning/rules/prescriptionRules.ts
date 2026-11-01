@@ -129,3 +129,27 @@ export function getPrescription(goal: Goal, fitnessLevel: FitnessLevel): Prescri
   }
   return rule;
 }
+
+/**
+ * Isolation movements (curls, raises, extensions) aren't trained in
+ * low-rep strength ranges: they get at most 3 sets and a rep range of at
+ * least 8-12. Compound (or unknown-mechanic) exercises keep the goal x
+ * level rule unchanged.
+ */
+export function adjustPrescriptionForMechanic(
+  rule: PrescriptionRule,
+  mechanic: string | null | undefined,
+): Pick<PrescriptionRule, 'targetSets' | 'targetRepsMin' | 'targetRepsMax'> {
+  if (mechanic !== 'isolation') {
+    return {
+      targetSets: rule.targetSets,
+      targetRepsMin: rule.targetRepsMin,
+      targetRepsMax: rule.targetRepsMax,
+    };
+  }
+  return {
+    targetSets: Math.min(rule.targetSets, 3),
+    targetRepsMin: Math.max(rule.targetRepsMin, 8),
+    targetRepsMax: Math.max(rule.targetRepsMax, 12),
+  };
+}

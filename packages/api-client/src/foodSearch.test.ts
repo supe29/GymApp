@@ -29,6 +29,7 @@ describe('searchFoodItems (FR-7.1/UX-7)', () => {
 
     expect(result.error).toBeNull();
     expect(builder.ilike).toHaveBeenCalledWith('name', '%ban%');
+    expect(builder.ilike).toHaveBeenCalledWith('name', 'ban%');
     expect(result.data).toEqual([
       {
         id: 'food-1',
@@ -44,6 +45,51 @@ describe('searchFoodItems (FR-7.1/UX-7)', () => {
         createdByUserId: null,
       },
     ]);
+  });
+
+  test('every word must match, in any order, and plurals are stemmed', async () => {
+    const { client, from } = createMockClient();
+    const builder = createQueryBuilderMock({ data: [], error: null });
+    from.mockImplementation(() => builder);
+
+    await searchFoodItems(client, 'Chicken  breasts');
+
+    // Two candidate queries: first word as a name prefix, and every word anywhere.
+    expect((builder.ilike as jest.Mock).mock.calls).toEqual([
+      ['name', 'chicken%'],
+      ['name', '%breast%'],
+      ['name', '%chicken%'],
+      ['name', '%breast%'],
+    ]);
+  });
+
+  test('ranks names starting with the query, then simpler names, first', async () => {
+    const { client, from } = createMockClient();
+    const row = (id: string, name: string) => ({ ...FOOD_ROW, id, name });
+    const builder = createQueryBuilderMock({
+      data: [
+        row('a', 'Babyfood, bananas, strained'),
+        row('b', 'Bananas, dehydrated, or banana powder'),
+        row('c', 'Bananas, raw'),
+      ],
+      error: null,
+    });
+    from.mockImplementation(() => builder);
+
+    const result = await searchFoodItems(client, 'banana');
+
+    expect(result.data?.map((f) => f.name)).toEqual([
+      'Bananas, raw',
+      'Bananas, dehydrated, or banana powder',
+      'Babyfood, bananas, strained',
+    ]);
+  });
+
+  test('a blank query returns no results without querying', async () => {
+    const { client, from } = createMockClient();
+    const result = await searchFoodItems(client, '   ');
+    expect(result).toEqual({ data: [], error: null });
+    expect(from).not.toHaveBeenCalled();
   });
 
   test('propagates a query error', async () => {

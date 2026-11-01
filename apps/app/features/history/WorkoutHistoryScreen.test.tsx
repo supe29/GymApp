@@ -91,6 +91,31 @@ describe('WorkoutHistoryScreen (FR-5.5/AC-8)', () => {
     expect(getByTestId('history-session-session-2-exercise-ex-9').props.children.join('')).toContain('1 set');
   });
 
+  test('hides an abandoned session that was opened but never logged or completed', async () => {
+    mockedApiClient.getWorkoutSessionHistory.mockResolvedValue({
+      data: [
+        {
+          session: {
+            id: 'abandoned-1',
+            plannedSessionId: 'planned-1',
+            workoutPlanId: 'plan-1',
+            status: 'in_progress',
+            startedAt: '2026-01-06T10:00:00Z',
+            completedAt: null,
+          },
+          exerciseNames: {},
+          setLogs: [],
+        },
+      ],
+      error: null,
+    });
+
+    const { getByTestId, queryByTestId } = render(<WorkoutHistoryScreen client={fakeClient} userId="user-1" />);
+
+    await waitFor(() => expect(getByTestId('history-empty')).toBeTruthy());
+    expect(queryByTestId('history-session-abandoned-1')).toBeNull();
+  });
+
   test('shows an error message when the fetch fails', async () => {
     mockedApiClient.getWorkoutSessionHistory.mockResolvedValue({ data: null, error: 'network error' });
 

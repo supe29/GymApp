@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { GymSupabaseClient } from 'api-client';
 import { Pressable, Text } from 'react-native';
 
+import TabIcon, { type TabIconName } from '../components/TabIcon';
 import DashboardScreen from '../features/dashboard/DashboardScreen';
 import WorkoutHistoryScreen from '../features/history/WorkoutHistoryScreen';
 import MuscleExplorerScreen from '../features/muscle-explorer/MuscleExplorerScreen';
@@ -154,9 +155,31 @@ const Tabs = createBottomTabNavigator();
  * header-button-triggered secondary screen rather than modifying
  * `DiaryScreen.tsx`/`WeightTrendScreen.tsx` to add a push of their own.
  */
+const TAB_ICONS: Record<string, TabIconName> = {
+  Dashboard: 'dashboard',
+  Plan: 'plan',
+  Nutrition: 'nutrition',
+  Progress: 'progress',
+  Profile: 'profile',
+};
+
 export default function MainTabs({ client = getSupabaseClient(), userId }: MainTabsProps) {
   return (
-    <Tabs.Navigator screenOptions={{ headerShown: false }}>
+    <Tabs.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: '#111',
+        tabBarInactiveTintColor: '#888',
+        // The default 49px bar squeezes the label under a full-size icon
+        // (its box shrinks below the text height and clips it on web).
+        tabBarStyle: { height: 64 },
+        tabBarItemStyle: { paddingVertical: 4 },
+        tabBarLabelStyle: { fontSize: 11, lineHeight: 14 },
+        tabBarIcon: ({ color, size }) => (
+          <TabIcon name={TAB_ICONS[route.name] ?? 'dashboard'} color={color} size={size} />
+        ),
+      })}
+    >
       <Tabs.Screen name="Dashboard">{() => <DashboardStackNavigator client={client} userId={userId} />}</Tabs.Screen>
       <Tabs.Screen name="Plan" options={{ headerShown: true }}>
         {() => <WorkoutPlanScreen client={client} userId={userId} />}

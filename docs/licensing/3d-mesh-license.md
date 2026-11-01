@@ -1,5 +1,8 @@
 # 3D body mesh licensing — go/no-go record (Phase 0.5, for Phase 4)
 
+**Superseded (2026-11-01):** the app now ships the Z-Anatomy anatomical mesh;
+see `/docs/licensing/anatomical-mesh-license.md`. This record is kept for history.
+
 **Status: GO.** This is the Phase 0.5 checkpoint plan.md requires before Phase 4
 may begin implementation against a 3D mesh asset — completed now, as a
 prerequisite, before Phase 4 engineering proceeds.

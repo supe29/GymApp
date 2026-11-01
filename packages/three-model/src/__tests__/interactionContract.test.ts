@@ -7,13 +7,13 @@ import {
   DEFAULT_CAMERA_STATE,
   defaultInteractionState,
   EMPTY_SELECTION,
+  faceCamera,
   interactionReducer,
   PITCH_MAX,
   PITCH_MIN,
   resetCamera,
   resetSelection,
-  resolveRegionAtPoint,
-  type RegionVolume,
+  regionIdFromMeshName,
   ZOOM_MAX,
   ZOOM_MIN,
 } from '../interactionContract';
@@ -100,50 +100,31 @@ describe('cameraStateToFraming (the exact-equality parity guarantee)', () => {
   });
 });
 
-describe('resolveRegionAtPoint (selection precision / tie-break)', () => {
-  const chest: RegionVolume = { id: 'chest', center: [0, 1, 0], halfExtents: [0.2, 0.2, 0.2] };
-  const abs: RegionVolume = { id: 'abdominals', center: [0, 0.6, 0], halfExtents: [0.2, 0.2, 0.2] };
-  const regions = [chest, abs];
+describe('regionIdFromMeshName (hit mesh -> region)', () => {
+  const regionIds = ['chest', 'biceps', 'lower_back'];
 
-  test('returns the region whose box contains the point', () => {
-    expect(resolveRegionAtPoint([0, 1, 0], regions)).toBe('chest');
+  test('resolves a region mesh name to its region id', () => {
+    expect(regionIdFromMeshName('region-chest', regionIds)).toBe('chest');
+    expect(regionIdFromMeshName('region-lower_back', regionIds)).toBe('lower_back');
   });
 
-  test('returns null when the point is outside every region', () => {
-    expect(resolveRegionAtPoint([10, 10, 10], regions)).toBeNull();
+  test('returns null for meshes that are not regions (context muscle, bone)', () => {
+    expect(regionIdFromMeshName('muscle-context', regionIds)).toBeNull();
+    expect(regionIdFromMeshName('bone', regionIds)).toBeNull();
   });
 
-  test('tie-break: when two boxes overlap, the region whose center is nearer wins', () => {
-    const overlapping: RegionVolume[] = [
-      { id: 'a', center: [0, 0, 0], halfExtents: [1, 1, 1] },
-      { id: 'b', center: [0, 0.5, 0], halfExtents: [1, 1, 1] },
-    ];
-    // Point closer to b's center (0.5) than a's center (0):
-    expect(resolveRegionAtPoint([0, 0.6, 0], overlapping)).toBe('b');
-    // Point closer to a's center:
-    expect(resolveRegionAtPoint([0, 0.1, 0], overlapping)).toBe('a');
-  });
-
-  test('tie-break result does not depend on array order', () => {
-    const overlapping: RegionVolume[] = [
-      { id: 'a', center: [0, 0, 0], halfExtents: [1, 1, 1] },
-      { id: 'b', center: [0, 0.5, 0], halfExtents: [1, 1, 1] },
-    ];
-    const reversed = [...overlapping].reverse();
-    expect(resolveRegionAtPoint([0, 0.6, 0], overlapping)).toBe(
-      resolveRegionAtPoint([0, 0.6, 0], reversed),
-    );
+  test('returns null for a region mesh whose id is not a known region', () => {
+    expect(regionIdFromMeshName('region-tail', regionIds)).toBeNull();
+    expect(regionIdFromMeshName('region-', regionIds)).toBeNull();
   });
 
   test('empty region list always resolves to null', () => {
-    expect(resolveRegionAtPoint([0, 0, 0], [])).toBeNull();
+    expect(regionIdFromMeshName('region-chest', [])).toBeNull();
   });
 });
 
 describe('interactionReducer (the single entry point both renderers must use)', () => {
-  const regions: RegionVolume[] = [
-    { id: 'chest', center: [0, 1, 0], halfExtents: [0.2, 0.2, 0.2] },
-  ];
+  const regions = ['chest'];
 
   test('rotate action updates only camera', () => {
     const state = defaultInteractionState();
@@ -158,22 +139,41 @@ describe('interactionReducer (the single entry point both renderers must use)', 
     expect(next.camera.zoom).toBeCloseTo(0.6);
   });
 
-  test('select action sets regionId and timestamp when the point hits a region', () => {
+  test('select action sets regionId and timestamp for a known region', () => {
     const state = defaultInteractionState();
-    const next = interactionReducer(state, { type: 'select', point: [0, 1, 0] }, regions, 12345);
+    const next = interactionReducer(state, { type: 'select', regionId: 'chest' }, regions, 12345);
     expect(next.selection).toEqual({ regionId: 'chest', timestamp: 12345 });
   });
 
-  test('select action leaves state unchanged when the point hits no region', () => {
+  test('select action leaves state unchanged when the tap hit no region', () => {
     const state = defaultInteractionState();
-    const next = interactionReducer(state, { type: 'select', point: [99, 99, 99] }, regions, 12345);
-    expect(next).toEqual(state);
+    expect(interactionReducer(state, { type: 'select', regionId: null }, regions, 12345)).toEqual(state);
+  });
+
+  test('select action leaves state unchanged for an unknown region id', () => {
+    const state = defaultInteractionState();
+    expect(interactionReducer(state, { type: 'select', regionId: 'tail' }, regions, 12345)).toEqual(state);
+  });
+
+  test('face action turns to look straight at the front or back, keeping zoom and selection', () => {
+    let state = defaultInteractionState();
+    state = interactionReducer(state, { type: 'rotate', deltaYawTurns: 0.3, deltaPitchTurns: 0.2 }, regions, 1);
+    state = interactionReducer(state, { type: 'zoom', deltaZoom: -0.2 }, regions, 2);
+    state = interactionReducer(state, { type: 'select', regionId: 'chest' }, regions, 3);
+
+    const back = interactionReducer(state, { type: 'face', side: 'back' }, regions, 4);
+    expect(back.camera).toEqual({ yaw: 0.5, pitch: 0, zoom: state.camera.zoom });
+    expect(back.selection).toEqual(state.selection);
+
+    const front = interactionReducer(back, { type: 'face', side: 'front' }, regions, 5);
+    expect(front.camera).toEqual({ yaw: 0, pitch: 0, zoom: state.camera.zoom });
+    expect(faceCamera(DEFAULT_CAMERA_STATE, 'front')).toEqual(DEFAULT_CAMERA_STATE);
   });
 
   test('reset action returns to defaults regardless of prior state', () => {
     let state = defaultInteractionState();
     state = interactionReducer(state, { type: 'rotate', deltaYawTurns: 0.3, deltaPitchTurns: 0.2 }, regions, 1);
-    state = interactionReducer(state, { type: 'select', point: [0, 1, 0] }, regions, 2);
+    state = interactionReducer(state, { type: 'select', regionId: 'chest' }, regions, 2);
     const afterReset = interactionReducer(state, { type: 'reset' }, regions, 3);
     expect(afterReset).toEqual(defaultInteractionState());
   });
@@ -182,7 +182,7 @@ describe('interactionReducer (the single entry point both renderers must use)', 
     const actions: Parameters<typeof interactionReducer>[1][] = [
       { type: 'rotate', deltaYawTurns: 0.2, deltaPitchTurns: 0.1 },
       { type: 'zoom', deltaZoom: -0.1 },
-      { type: 'select', point: [0, 1, 0] },
+      { type: 'select', regionId: 'chest' },
       { type: 'rotate', deltaYawTurns: -0.05, deltaPitchTurns: 0 },
     ];
     function run() {

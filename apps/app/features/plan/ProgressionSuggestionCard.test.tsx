@@ -49,8 +49,8 @@ describe('ProgressionSuggestionCard (FR-6.2/FR-6.3)', () => {
     const { getByTestId } = render(<ProgressionSuggestionCard {...baseProps} onOverride={onOverride} />);
 
     fireEvent.press(getByTestId('progression-card-ex-1-override-toggle'));
-    expect(getByTestId('progression-card-ex-1-override-weight-value').props.children).toBe(52.5);
-    expect(getByTestId('progression-card-ex-1-override-reps-value').props.children).toBe(8);
+    expect(getByTestId('progression-card-ex-1-override-weight-value').props.value).toBe('52.5');
+    expect(getByTestId('progression-card-ex-1-override-reps-value').props.value).toBe('8');
 
     fireEvent.press(getByTestId('progression-card-ex-1-override-weight-inc'));
     fireEvent.press(getByTestId('progression-card-ex-1-override-reps-dec'));

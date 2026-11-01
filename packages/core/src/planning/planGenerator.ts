@@ -8,7 +8,8 @@
 import { filterByEquipmentSubset, filterByMuscleGroup, type ExerciseWithTags } from '../content/exerciseQueries';
 import type { FitnessLevel, Goal } from '../validation/profileValidation';
 import { type GatingResult, selectExerciseForSlot } from './rules/difficultyGating';
-import { getPrescription } from './rules/prescriptionRules';
+import { compareCandidates, isPrescribable } from './rules/exerciseSelection';
+import { adjustPrescriptionForMechanic, getPrescription } from './rules/prescriptionRules';
 import { getExercisesPerSession } from './rules/sessionComposition';
 import type { SplitType } from './rules/splitRules';
 import { selectSplit } from './splitSelector';
@@ -64,12 +65,22 @@ export interface GeneratedPlan {
   };
 }
 
-function rankCandidates(candidates: ExerciseWithTags[], muscleGroupKey: string): ExerciseWithTags[] {
+/**
+ * Candidates in preference order (see compareCandidates), except that
+ * exercises already used by an earlier session with the same muscle-group
+ * template (e.g. Upper A when building Upper B) move to the back, so A/B
+ * days get different exercises whenever the library allows it.
+ */
+function rankCandidates(
+  candidates: ExerciseWithTags[],
+  muscleGroupKey: string,
+  usedInSiblingSessions: ReadonlySet<string>,
+): ExerciseWithTags[] {
   return [...candidates].sort((a, b) => {
-    const aPrimary = a.primaryMuscleKeys.includes(muscleGroupKey) ? 0 : 1;
-    const bPrimary = b.primaryMuscleKeys.includes(muscleGroupKey) ? 0 : 1;
-    if (aPrimary !== bPrimary) return aPrimary - bPrimary;
-    return a.id.localeCompare(b.id);
+    const aUsed = usedInSiblingSessions.has(a.id) ? 1 : 0;
+    const bUsed = usedInSiblingSessions.has(b.id) ? 1 : 0;
+    if (aUsed !== bUsed) return aUsed - bUsed;
+    return compareCandidates(a, b, muscleGroupKey);
   });
 }
 
@@ -111,22 +122,35 @@ export function generatePlan(input: PlanGeneratorInput): GeneratedPlan {
   const sessionCompositionKey = `${splitType}:${fitnessLevel}`;
   const prescriptionRuleKey = `${goal}:${fitnessLevel}`;
 
+  const prescribableLibrary = exerciseLibrary.filter(isPrescribable);
+  // Exercise ids used so far per muscle-group template, keyed by the
+  // template's muscle list, so repeated days (A/B) can rotate exercises.
+  const usedByTemplate = new Map<string, Set<string>>();
+
   const sessions: GeneratedSession[] = sessionTemplates.map((template) => {
     const usedExerciseIds = new Set<string>();
+    const templateKey = template.muscleGroupKeys.join(',');
+    const usedInSiblingSessions = usedByTemplate.get(templateKey) ?? new Set<string>();
     const exercises: GeneratedPrescribedExercise[] = [];
 
-    for (let slot = 0; slot < exercisesPerSession; slot += 1) {
+    // Cycle the day's muscle groups until the session is full: when a
+    // group has no compatible exercise (e.g. calves for a bodyweight-only
+    // user), later passes give another group a second exercise instead of
+    // leaving the session short. Bounded, so an exhausted library still
+    // yields a thinner session rather than looping.
+    const maxSlots = exercisesPerSession + template.muscleGroupKeys.length * 2;
+    for (let slot = 0; exercises.length < exercisesPerSession && slot < maxSlots; slot += 1) {
       const muscleGroupKey = template.muscleGroupKeys[slot % template.muscleGroupKeys.length];
 
       // FR-2.2/SR-6: filterByEquipmentSubset is the single enforcement
       // point for "never prescribe equipment the user hasn't declared" —
       // reused verbatim from Phase 3, never reimplemented here.
       const candidates = filterByEquipmentSubset(
-        filterByMuscleGroup(exerciseLibrary, muscleGroupKey),
+        filterByMuscleGroup(prescribableLibrary, muscleGroupKey),
         availableEquipmentKeys,
       ).filter((e) => !usedExerciseIds.has(e.id));
 
-      const ranked = rankCandidates(candidates, muscleGroupKey);
+      const ranked = rankCandidates(candidates, muscleGroupKey, usedInSiblingSessions);
       const gated = selectExerciseForSlot(ranked, fitnessLevel);
 
       // No compatible exercise exists for this muscle/equipment slot — a
@@ -135,15 +159,26 @@ export function generatePlan(input: PlanGeneratorInput): GeneratedPlan {
       if (gated === null) {
         continue;
       }
+      // SR-3: the advanced-exercise fallback is only for a muscle group's
+      // first slot, when no safer option exists at all. A fill pass
+      // revisiting the group (its safe exercise already used) must not
+      // reach for the advanced one just to lengthen the session.
+      if (slot >= exercisesPerSession && gated.usedAdvancedFallback) {
+        continue;
+      }
 
       usedExerciseIds.add(gated.exercise.id);
+      const { targetSets, targetRepsMin, targetRepsMax } = adjustPrescriptionForMechanic(
+        prescription,
+        gated.exercise.mechanic,
+      );
       exercises.push({
         exerciseId: gated.exercise.id,
         exerciseName: gated.exercise.name,
         orderIndex: exercises.length,
-        targetSets: prescription.targetSets,
-        targetRepsMin: prescription.targetRepsMin,
-        targetRepsMax: prescription.targetRepsMax,
+        targetSets,
+        targetRepsMin,
+        targetRepsMax,
         targetWeightKg: null,
         intensityNote: buildIntensityNote(
           prescription.intensityNoteTemplate,
@@ -162,6 +197,9 @@ export function generatePlan(input: PlanGeneratorInput): GeneratedPlan {
         },
       });
     }
+
+    for (const e of exercises) usedInSiblingSessions.add(e.exerciseId);
+    usedByTemplate.set(templateKey, usedInSiblingSessions);
 
     return { dayOrder: template.dayOrder, name: template.name, exercises };
   });
