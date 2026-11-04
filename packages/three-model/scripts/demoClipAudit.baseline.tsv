@@ -1,0 +1,371 @@
+# sha256 auditDemoClips.py e2e58b5c5ba1e8415a62122a83c33defbb7e9a2cd420389161cb47635a39115a
+# sha256 buildDemoMesh.py 59c3dc7be59b07f171fd1bf4893ef9897ec89d0c98f40583b6a4109cc7082183
+# sha256 body-demo.glb d6cd809b3ad1e5e24fe807539743e57e2da9f796eebaedcfa25e9f1ed90abef2
+ab_rollout	below_floor		0.043
+arnold_press	pop		48.341
+around_the_world	prop_through_body	prop_dumbbell_l/thigh_l	0.042
+around_the_world	prop_through_body	prop_dumbbell_r/thigh_r	0.042
+balance_board	prop_below_floor		0.050
+ball_crunch	prop_through_body	prop_stability_ball/torso	0.035
+ball_pull_in	prop_through_body	prop_stability_ball/shin_l	0.022
+bear_crawl	below_floor		0.036
+bear_crawl	limb_short	arm_l	0.093
+bear_crawl	limb_short	arm_r	0.093
+bench_dip	wrist_limit	L	104.584
+bench_dip	wrist_limit	R	104.584
+bike	prop_through_body	prop_bike/thigh_l	0.050
+bike	prop_through_body	prop_bike/thigh_r	0.050
+bound_diagonal	ankle_limit	L	71.498
+box_jump	limb_short	leg_r	0.151
+box_jump	pop		69.999
+box_jump_seated	limb_short	leg_r	0.149
+box_jump_side	limb_short	leg_r	0.116
+box_jump_side	pop		69.999
+box_one_leg	hip_limit	L	144.934
+box_one_leg	limb_short	leg_r	0.109
+box_over	pop		69.999
+box_push_off	limb_short	leg_r	0.134
+box_push_off	pop		69.999
+box_shuffle	ankle_limit	L	65.604
+box_shuffle	ankle_limit	R	65.604
+box_shuffle	limb_short	leg_l	0.086
+box_shuffle	limb_short	leg_r	0.086
+box_shuffle	pop		69.999
+box_switch	limb_short	leg_l	0.084
+box_switch	limb_short	leg_r	0.084
+butt_ups	below_floor		0.019
+calf_raise_reverse	prop_below_floor		0.035
+clean	pop		48.503
+clean_and_jerk	pop		48.791
+clean_and_press	pop		56.961
+clean_blocks	pop		48.503
+crunch_decline_twist	prop_through_body	prop_bench_decline/thigh_l	0.022
+crunch_decline_twist	prop_through_body	prop_bench_decline/thigh_r	0.022
+curl_dumbbell	prop_through_body	prop_dumbbell_l/thigh_l	0.025
+curl_dumbbell	prop_through_body	prop_dumbbell_r/thigh_r	0.025
+curl_dumbbell_alternate	prop_through_body	prop_dumbbell_l/thigh_l	0.025
+curl_dumbbell_alternate	prop_through_body	prop_dumbbell_r/thigh_r	0.025
+curl_hammer_cross	prop_through_body	prop_dumbbell_l/thigh_l	0.045
+curl_hammer_cross	prop_through_body	prop_dumbbell_r/thigh_r	0.045
+curl_incline	prop_through_body	prop_dumbbell_l/torso	0.045
+curl_incline	prop_through_body	prop_dumbbell_r/torso	0.045
+curl_incline_alternate	prop_through_body	prop_dumbbell_l/torso	0.045
+curl_incline_alternate	prop_through_body	prop_dumbbell_r/torso	0.045
+curl_preacher_zottman	pop		64.431
+curl_reverse_dumbbell	prop_through_body	prop_dumbbell_l/thigh_l	0.025
+curl_reverse_dumbbell	prop_through_body	prop_dumbbell_r/thigh_r	0.025
+curl_seated	prop_through_body	prop_dumbbell_l/thigh_l	0.049
+curl_seated	prop_through_body	prop_dumbbell_r/thigh_r	0.049
+curl_seated_inner	prop_through_body	prop_dumbbell_l/thigh_l	0.041
+curl_seated_inner	prop_through_body	prop_dumbbell_r/thigh_r	0.041
+curl_zottman	pop		64.505
+curl_zottman	prop_through_body	prop_dumbbell_l/thigh_l	0.031
+curl_zottman	prop_through_body	prop_dumbbell_r/thigh_r	0.031
+deadlift_one_arm_side	hand_off_bar		0.553
+depth_jump	limb_short	leg_r	0.118
+depth_jump	pop		69.999
+dumbbell_clean	pop		63.400
+dumbbell_clean	prop_through_body	prop_dumbbell_l/thigh_l	0.038
+dumbbell_clean	prop_through_body	prop_dumbbell_r/thigh_r	0.038
+dumbbell_row	prop_through_body	prop_dumbbell_l/torso	0.021
+dumbbell_row	prop_through_body	prop_dumbbell_r/torso	0.021
+elliptical	limb_short	leg_l	0.028
+elliptical	limb_short	leg_r	0.028
+floor_ghr	limb_short	leg_l	0.026
+floor_ghr	limb_short	leg_r	0.026
+foam_roll_lat	limb_short	arm_r	0.072
+front_raise_incline	pop		60.040
+front_sweep_side_raise	pop		50.344
+front_then_side_raise	pop		59.805
+glute_bridge_barbell	hand_off_bar		0.020
+groiners	below_floor		0.030
+groiners	hip_limit	L	141.825
+groiners	hip_limit	R	141.825
+groiners	limb_short	leg_l	0.100
+groiners	limb_short	leg_r	0.100
+hack_squat	limb_short	leg_l	0.025
+hack_squat	limb_short	leg_r	0.025
+hack_squat	prop_below_floor		0.035
+hack_squat_lying	limb_short	leg_l	0.034
+hack_squat_lying	limb_short	leg_r	0.034
+hack_squat_lying	prop_below_floor		0.035
+hack_squat_narrow	prop_below_floor		0.035
+handstand_pushup	ankle_limit	L	83.628
+handstand_pushup	ankle_limit	R	83.628
+handstand_pushup	limb_short	arm_l	0.083
+handstand_pushup	limb_short	arm_r	0.083
+hang_clean	pop		49.518
+hang_clean_low	pop		49.518
+hang_power_clean	pop		49.518
+hang_snatch	pop		99.208
+hang_snatch_low	pop		99.208
+hanging_leg_raise	pop		50.839
+hip_adduction_band	prop_through_body	prop_band/shin_l	0.035
+hip_adduction_cable	prop_through_body	prop_cable_l/shin_l	0.034
+hip_bridge_ball	prop_through_body	prop_stability_ball/torso	0.046
+hip_extension_band	prop_through_body	prop_band/shin_r	0.027
+hip_flexion_band	prop_through_body	prop_band/shin_r	0.026
+hip_kick_cable	prop_through_body	prop_cable_l/shin_r	0.031
+hip_thrust_barbell	hand_off_bar		0.020
+hop_butt_kick	pop		102.145
+hop_cone	pop		69.999
+hop_cone_one_leg	pop		69.999
+hop_cone_side	pop		69.999
+hop_cone_side	prop_through_body	prop_cone/shin_l	0.024
+hop_cone_side	prop_through_body	prop_cone/shin_r	0.024
+hop_cone_side_one_leg	pop		69.999
+hop_cone_side_one_leg	prop_through_body	prop_cone/shin_l	0.030
+hyperextension_ball	limb_short	leg_l	0.025
+hyperextension_ball	limb_short	leg_r	0.025
+hyperextension_ball	prop_through_body	prop_stability_ball/torso	0.086
+inchworm	ankle_limit	L	73.528
+inchworm	ankle_limit	R	73.528
+inchworm	below_floor		0.034
+incline_pushup_close	pop		53.216
+judo_flip	limb_short	arm_l	0.089
+judo_flip	limb_short	arm_r	0.064
+judo_flip	pop		62.666
+jump_butt_kick	pop		102.145
+jump_rocket	pop		102.145
+jump_star	limb_short	leg_l	0.041
+jump_star	limb_short	leg_r	0.041
+jump_star	pop		75.428
+jump_tuck	pop		102.145
+kettlebell_clean	pop		65.455
+kettlebell_clean	prop_through_body	prop_hanging_kettlebell_l/shin_l	0.029
+kettlebell_clean	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.051
+kettlebell_clean	prop_through_body	prop_hanging_kettlebell_r/shin_r	0.029
+kettlebell_clean	prop_through_body	prop_hanging_kettlebell_r/thigh_r	0.051
+kettlebell_clean_and_jerk_one_arm	pop		78.434
+kettlebell_clean_and_jerk_one_arm	prop_through_body	prop_hanging_kettlebell_l/shin_l	0.033
+kettlebell_clean_and_jerk_one_arm	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.051
+kettlebell_clean_one	pop		63.142
+kettlebell_clean_one	prop_through_body	prop_hanging_kettlebell_l/shin_l	0.032
+kettlebell_clean_one	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.052
+kettlebell_halo	pop		105.921
+kettlebell_hang_clean_one	pop		77.890
+kettlebell_hang_clean_one	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.051
+kettlebell_pass	loop_gap		18.758
+kettlebell_pass	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.052
+kettlebell_pass	prop_through_body	prop_hanging_kettlebell_l/thigh_r	0.052
+kettlebell_pirate_ship	limb_short	arm_l	0.100
+kettlebell_pirate_ship	limb_short	arm_r	0.100
+kettlebell_snatch	pop		66.854
+kettlebell_snatch	prop_through_body	prop_hanging_kettlebell_l/shin_l	0.031
+kettlebell_snatch	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.029
+kettlebell_snatch	prop_through_body	prop_hanging_kettlebell_r/shin_r	0.031
+kettlebell_snatch	prop_through_body	prop_hanging_kettlebell_r/thigh_r	0.029
+kettlebell_snatch_one_arm	pop		66.854
+kettlebell_snatch_one_arm	prop_through_body	prop_hanging_kettlebell_l/shin_l	0.031
+kettlebell_snatch_one_arm	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.029
+kettlebell_split_snatch_one_arm	pop		66.714
+kettlebell_split_snatch_one_arm	prop_through_body	prop_hanging_kettlebell_l/shin_l	0.031
+kettlebell_split_snatch_one_arm	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.029
+kettlebell_swing_one	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.048
+kickback	prop_through_body	prop_dumbbell_l/thigh_l	0.039
+kickback	prop_through_body	prop_dumbbell_r/thigh_r	0.039
+kickback_one_arm	prop_through_body	prop_dumbbell_l/thigh_l	0.039
+kickback_seated	prop_through_body	prop_dumbbell_l/thigh_l	0.051
+kickback_seated	prop_through_body	prop_dumbbell_r/thigh_r	0.051
+kickback_seated_one_arm	prop_through_body	prop_dumbbell_l/thigh_l	0.051
+kickback_seated_one_arm	wrist_limit	R	101.294
+kneeling_jump_squat	below_floor		0.029
+kneeling_jump_squat	pop		56.342
+kneeling_pulley_row_one_arm	pop		91.459
+landmine_180	limb_short	arm_l	0.042
+landmine_180	limb_short	arm_r	0.042
+leg_curl_band	prop_through_body	prop_band/shin_l	0.033
+leg_curl_band	prop_through_body	prop_band_r/shin_r	0.034
+leg_curl_floor	below_floor		0.036
+leg_curl_standing	below_floor		0.019
+leg_press	ankle_limit	L	66.324
+leg_press	ankle_limit	R	66.324
+leg_press	prop_through_body	prop_cable_beam/torso	0.082
+leg_press_calf	prop_through_body	prop_cable_beam/torso	0.082
+leg_press_floor	hand_off_bar		0.947
+leg_press_narrow	ankle_limit	L	67.545
+leg_press_narrow	ankle_limit	R	67.545
+leg_press_narrow	prop_through_body	prop_cable_beam/torso	0.082
+leg_pull_in	wrist_limit	L	139.141
+leg_pull_in	wrist_limit	R	139.141
+long_bar_row	prop_through_body	prop_long_bar/torso	0.087
+long_jump	pop		69.999
+long_jump_side	pop		69.999
+lunge_kettlebell	prop_through_body	prop_hanging_kettlebell_l/thigh_l	0.039
+lunge_kettlebell	prop_through_body	prop_hanging_kettlebell_r/thigh_r	0.039
+monster_walk	prop_through_body	prop_band/shin_l	0.035
+monster_walk	prop_through_body	prop_band/shin_r	0.035
+mountain_climbers	below_floor		0.019
+mountain_climbers	limb_short	leg_l	0.100
+mountain_climbers	limb_short	leg_r	0.100
+muscle_snatch	pop		66.422
+muscle_up	pop		63.073
+one_handed_hang	hand_off_bar		1.191
+overhead_throw	prop_through_body	prop_ball/head	0.067
+pallof_press	limb_short	arm_l	0.048
+pallof_press	limb_short	arm_r	0.048
+pallof_press_rotation	limb_short	arm_r	0.067
+pistol_bar	limb_short	leg_r	0.044
+pistol_kettlebell	limb_short	leg_r	0.044
+power_clean	pop		56.961
+power_clean_blocks	pop		56.961
+power_snatch	pop		114.133
+power_snatch_blocks	pop		114.133
+pullup_v_bar	hand_off_bar		0.100
+pullup_v_bar	prop_through_body	prop_v_handle/head	0.020
+pushup_one_arm	below_floor		0.023
+rear_raise_seated	prop_through_body	prop_dumbbell_l/shin_l	0.024
+rear_raise_seated	prop_through_body	prop_dumbbell_r/shin_r	0.024
+reverse_crunch_decline	prop_through_body	prop_bench_decline/head	0.044
+reverse_crunch_decline	prop_through_body	prop_bench_decline/torso	0.022
+reverse_fly_crossed	pop		56.504
+reverse_fly_incline_rotate	pop		114.274
+reverse_fly_seated	pop		69.921
+reverse_fly_standing	pop		69.921
+rope_climb	pop		112.065
+rowing	hip_limit	L	144.464
+rowing	hip_limit	R	144.464
+rowing	limb_short	leg_l	0.135
+rowing	limb_short	leg_r	0.135
+side_bend_dumbbell	prop_through_body	prop_dumbbell_l/thigh_l	0.046
+side_bridge	pop		90.636
+side_jackknife	pop		91.334
+sit_up_decline	prop_through_body	prop_bench_decline/thigh_l	0.027
+sit_up_decline	prop_through_body	prop_bench_decline/thigh_r	0.027
+sit_up_press	pop		46.272
+sit_up_press	prop_through_body	prop_bench_decline/thigh_l	0.027
+sit_up_press	prop_through_body	prop_bench_decline/thigh_r	0.027
+skating	limb_short	leg_l	0.080
+skating	limb_short	leg_r	0.080
+sled_drag_forward	prop_through_body	prop_cable_l/torso	0.026
+sledgehammer	limb_short	arm_r	0.033
+smr_adductor	below_floor		0.056
+smr_brachialis	limb_short	arm_r	0.072
+smr_foot	prop_below_floor		0.030
+smr_peroneal	below_floor		0.028
+smr_peroneal	limb_short	arm_r	0.031
+smr_piriformis	limb_short	arm_l	0.132
+smr_piriformis	limb_short	arm_r	0.132
+smr_side	below_floor		0.042
+smr_tibialis	hip_limit	L	138.510
+smr_tibialis	hip_limit	R	138.510
+smr_tibialis	limb_short	arm_r	0.033
+snatch	pop		110.418
+snatch_blocks	pop		110.418
+split_bench_bar	limb_short	leg_l	0.045
+split_bench_dumbbell	limb_short	leg_l	0.045
+split_clean	pop		48.757
+split_snatch	pop		113.645
+split_suspended	limb_short	leg_l	0.045
+sprint_start	hip_limit	L	144.032
+sprint_start	limb_short	arm_r	0.028
+sprint_start	limb_short	leg_r	0.032
+squat_dumbbell	prop_through_body	prop_dumbbell_l/thigh_l	0.047
+squat_dumbbell	prop_through_body	prop_dumbbell_r/thigh_r	0.047
+squat_dumbbell_box	prop_through_body	prop_dumbbell_l/shin_l	0.023
+squat_dumbbell_box	prop_through_body	prop_dumbbell_l/thigh_l	0.052
+squat_dumbbell_box	prop_through_body	prop_dumbbell_r/shin_r	0.023
+squat_dumbbell_box	prop_through_body	prop_dumbbell_r/thigh_r	0.052
+squat_frankenstein	hand_off_bar		0.385
+squat_jefferson	hand_off_bar		0.061
+squat_jefferson	limb_short	arm_l	0.049
+squat_jefferson	limb_short	arm_r	0.049
+squat_zercher	hand_off_bar		0.199
+step_up_bar	limb_short	leg_r	0.059
+step_up_dumbbell	limb_short	leg_r	0.059
+stretch_90_90	limb_short	arm_r	0.066
+stretch_all_fours_quad	knee_limit	R	163.787
+stretch_all_fours_quad	limb_short	arm_r	0.177
+stretch_ball	limb_short	arm_r	0.109
+stretch_ball_pyramid	prop_through_body	prop_stability_ball/torso	0.077
+stretch_bench_quad	limb_short	arm_l	0.167
+stretch_bench_quad	limb_short	arm_r	0.056
+stretch_calf_elbows	limb_short	arm_l	0.078
+stretch_calf_elbows	limb_short	arm_r	0.078
+stretch_calf_elbows	limb_short	leg_l	0.034
+stretch_calf_elbows	limb_short	leg_r	0.034
+stretch_calf_hands	limb_short	leg_r	0.036
+stretch_chair_leg	limb_short	arm_l	0.041
+stretch_chair_leg	limb_short	arm_r	0.041
+stretch_childs_pose	hip_limit	L	141.803
+stretch_childs_pose	hip_limit	R	141.803
+stretch_dancers	wrist_limit	R	96.466
+stretch_downward_balance	limb_short	leg_l	0.103
+stretch_downward_balance	limb_short	leg_r	0.103
+stretch_downward_balance	prop_through_body	prop_stability_ball/torso	0.063
+stretch_downward_balance	wrist_limit	L	114.305
+stretch_downward_balance	wrist_limit	R	114.305
+stretch_dynamic	pop		51.084
+stretch_elbow_circles	elbow_limit	L	165.252
+stretch_elbow_circles	elbow_limit	R	165.252
+stretch_foot_belt_in	hip_limit	R	142.896
+stretch_foot_belt_out	hip_limit	R	142.896
+stretch_forearm_kneeling	limb_short	arm_l	0.034
+stretch_forearm_kneeling	limb_short	arm_r	0.034
+stretch_gastroc	limb_short	arm_r	0.102
+stretch_gastroc	limb_short	leg_r	0.051
+stretch_glute_seated	hip_limit	L	152.303
+stretch_glute_seated	hip_limit	R	143.642
+stretch_glute_seated	limb_short	arm_l	0.117
+stretch_glute_seated	limb_short	arm_r	0.117
+stretch_hug_knees	limb_short	arm_l	0.178
+stretch_hug_knees	limb_short	arm_r	0.178
+stretch_iron_cross	below_floor		0.032
+stretch_it_belt	limb_short	arm_r	0.557
+stretch_knee_to_chest	limb_short	arm_l	0.080
+stretch_knee_to_chest	limb_short	arm_r	0.132
+stretch_kneeling_arch	below_floor		0.014
+stretch_kneeling_arch	limb_short	arm_l	0.208
+stretch_kneeling_arch	limb_short	arm_r	0.208
+stretch_leg_up	limb_short	arm_l	0.120
+stretch_locust	limb_short	arm_r	0.037
+stretch_locust	pop		61.260
+stretch_runner	ankle_limit	R	67.284
+stretch_runner	below_floor		0.011
+stretch_runner	hip_limit	L	148.761
+stretch_runner	limb_short	arm_l	0.053
+stretch_runner	limb_short	arm_r	0.053
+stretch_seated_calf	hip_limit	R	156.367
+stretch_seated_calf	limb_short	arm_l	0.116
+stretch_seated_calf	wrist_limit	R	101.045
+stretch_seated_hamstring	hip_limit	R	144.629
+stretch_seated_hamstring	limb_short	arm_l	0.251
+stretch_seated_hamstring	limb_short	arm_r	0.031
+stretch_side_quad	knee_backwards	R	0.142
+stretch_side_quad_belt	below_floor		0.015
+stretch_side_quad_belt	knee_backwards	R	0.142
+stretch_standing_hamstring	limb_short	leg_l	0.054
+stretch_standing_hamstring	wrist_limit	L	105.051
+stretch_standing_hamstring	wrist_limit	R	105.011
+stretch_straddle	limb_short	arm_l	0.209
+stretch_straddle	limb_short	arm_r	0.209
+stretch_toe_touch	limb_short	arm_l	0.723
+stretch_toe_touch	limb_short	arm_r	0.723
+stretch_toe_touch	neck_bend		72.800
+stretch_worlds_greatest	limb_short	arm_l	0.202
+stretch_worlds_greatest	limb_short	arm_r	0.208
+stretch_worlds_greatest	pop		126.144
+stretch_worlds_greatest	wrist_limit	L	97.272
+stretch_worlds_greatest	wrist_limit	R	95.380
+stretch_wrist_pull	arm_through_torso		0.052
+tire_flip	ankle_limit	L	69.429
+tire_flip	ankle_limit	R	68.526
+tire_flip	limb_short	arm_l	0.055
+tire_flip	limb_short	arm_r	0.055
+tire_flip	limb_short	leg_l	0.036
+tire_flip	limb_short	leg_r	0.055
+tire_flip	prop_through_body	prop_tire/thigh_l	0.021
+turkish_get_up	below_floor		0.043
+turkish_get_up	limb_short	arm_r	0.337
+turkish_get_up	pop		97.748
+turkish_get_up	wrist_limit	R	119.305
+wall_drill	limb_short	leg_l	0.153
+wall_drill	limb_short	leg_r	0.153
+windmill	spine_twist		72.000
+windmill_double	prop_through_body	prop_hanging_kettlebell_r/thigh_r	0.045
+windmill_double	spine_twist		72.000
+wrist_roller	limb_short	arm_l	0.033
+wrist_roller	limb_short	arm_r	0.033
+wrist_rotation_bar	limb_short	arm_l	0.042
+wrist_rotation_bar	limb_short	arm_r	0.042
+zercher_walk	hand_off_bar		0.194

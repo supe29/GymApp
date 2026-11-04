@@ -24,6 +24,8 @@ jest.mock('three-model', () => {
   const react = jest.requireActual('react');
   const rn = jest.requireActual('react-native');
   return {
+    DemoFigure: (props: { clip: string | null; paused?: boolean }) =>
+      react.createElement(rn.View, { testID: 'mock-demo-figure', clip: props.clip, paused: props.paused }),
     BodyModel: react.forwardRef(
       (
         props: {
@@ -54,6 +56,15 @@ const muscleGroups = [
 ];
 
 const exercises = [
+  {
+    id: 'ex-3',
+    name: 'Barbell Squat',
+    instructions: null,
+    difficulty: 'beginner' as const,
+    primaryMuscleKeys: ['chest'],
+    secondaryMuscleKeys: [],
+    requiredEquipmentKeys: ['barbell'],
+  },
   {
     id: 'ex-1',
     name: 'Barbell Bench Press',
@@ -188,6 +199,32 @@ describe('MuscleExplorerScreen (FR-4.1/FR-4.2/FR-4.4/UX-5/NFR-5)', () => {
       secondary: ['lats'],
     });
     expect(getByTestId('muscle-explorer-exercise-ex-1').props.accessibilityState).toEqual({ selected: true });
+  });
+
+  test('shows no demo figure until an exercise is chosen, then plays its clip with pause control', async () => {
+    const { getByTestId, queryByTestId } = await renderLoaded({ equipmentIds: ['eq-barbell'] });
+    fireEvent.press(getByTestId('mock-body-model'));
+    await waitFor(() => expect(getByTestId('muscle-explorer-exercise-ex-3')).toBeTruthy());
+    expect(queryByTestId('mock-demo-figure')).toBeNull();
+
+    fireEvent.press(getByTestId('muscle-explorer-exercise-ex-3'));
+    expect(getByTestId('mock-demo-figure').props.clip).toBe('squat');
+    expect(getByTestId('mock-demo-figure').props.paused).toBe(false);
+
+    fireEvent.press(getByTestId('muscle-explorer-demo-pause'));
+    expect(getByTestId('mock-demo-figure').props.paused).toBe(true);
+  });
+
+  test('an exercise with no matching motion shows the standing figure and says there is no demo', async () => {
+    const { getByTestId, queryByTestId } = await renderLoaded({ equipmentIds: ['eq-barbell'] });
+    fireEvent.press(getByTestId('mock-body-model'));
+    await waitFor(() => expect(getByTestId('muscle-explorer-exercise-ex-1')).toBeTruthy());
+
+    fireEvent.press(getByTestId('muscle-explorer-exercise-ex-1'));
+
+    expect(getByTestId('mock-demo-figure').props.clip).toBeNull();
+    expect(queryByTestId('muscle-explorer-demo-pause')).toBeNull();
+    expect(getByTestId('muscle-explorer-demo-note').props.children).toContain('No movement demo');
   });
 
   test('selecting a different region on the model clears the active exercise', async () => {
