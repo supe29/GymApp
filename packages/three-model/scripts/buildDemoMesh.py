@@ -1899,9 +1899,9 @@ def ball_hyperextension(phase):
     pose = Pose()
     pose.props['prop_stability_ball'] = (Vector((0, -0.05, 0.3)), NOTHING_HELD)
     rise = ease(phase)
-    lean = 122 - 42 * rise
+    lean = 100 - 35 * rise
     hips_at = (0, 0.15, 0.68)
-    apply_spine(pose, hips_at, rot_x(100 - 15 * rise), rot_x(112 - 30 * rise), rot_x(lean), rot_x(lean - 40), rot_x(lean - 60))
+    apply_spine(pose, hips_at, rot_x(95 - 15 * rise), rot_x(97 - 25 * rise), rot_x(lean), rot_x(lean - 40), rot_x(lean - 60))
     for side, sign in SIDES:
         apply_leg(pose, side, (sign * 0.14, 0.78, ANKLE_Z + 0.04), rot_x(50), Vector((sign * 0.1, -1, 0)))
     trunk = rot_x(lean)
@@ -2244,9 +2244,9 @@ def ball_pyramid(phase):
     sway = 0.02 * math.sin(2 * math.pi * phase)
     pose.props['prop_stability_ball'] = (Vector((0, 0.02, 0.3)), NOTHING_HELD)
     lean = 128
-    apply_spine(pose, (0, 0.12 + sway, 0.74 + sway), rot_x(lean - 25), rot_x(lean - 8), rot_x(lean), rot_x(lean - 18), rot_x(lean - 18))
+    apply_spine(pose, (0, 0.12 + sway, 0.76 + sway), rot_x(lean - 25), rot_x(lean - 8), rot_x(lean), rot_x(lean - 18), rot_x(lean - 18))
     for side, sign in SIDES:
-        apply_leg(pose, side, (sign * 0.14, 0.52, ANKLE_Z + 0.05), rot_x(35), Vector((sign * 0.1, -1, 0)))
+        apply_leg(pose, side, (sign * 0.14, 0.66, ANKLE_Z + 0.05), rot_x(35), Vector((sign * 0.1, -1, 0)))
     trunk = rot_x(lean)
     for side, sign in SIDES:
         apply_arm(pose, side, trunk, (sign * 0.22, -0.56, 0.07), Vector((sign * 0.3, 0.6, 0.7)), Vector((0, 0, -1)),
@@ -2950,8 +2950,8 @@ def jump_up(air_left=None, air_right=None, height=0.3, dip=0.17, **options):
     ), **{'arms': JUMP_ARMS, **options})
 
 
-def hop_chain(points, dip=0.14, height=0.3, axis='y', width=0.13, one_leg=False):
-    """Hops from point to point along y or x, dipping on each landing. With `one_leg`, on the left, the right foot held up behind."""
+def hop_chain(points, dip=0.14, height=0.3, axis='y', width=0.13, one_leg=False, steep=False):
+    """Hops from point to point along y or x, dipping on each landing. With `one_leg`, on the left, the right foot held up behind. With `steep`, each hop rises before it travels, to clear something tall."""
     def stance(t, at, air=0.0, dip=0.0):
         y = at if axis == 'y' else 0.0
         shift = at if axis == 'x' else 0.0
@@ -2964,7 +2964,12 @@ def hop_chain(points, dip=0.14, height=0.3, axis='y', width=0.13, one_leg=False)
     keys = []
     count = len(points) - 1
     for i, (start, end) in enumerate(zip(points, points[1:])):
-        keys += [stance(i / count, start, dip=dip), stance((i + 0.5) / count, (start + end) / 2, air=height)]
+        keys.append(stance(i / count, start, dip=dip))
+        if steep:
+            keys.append(stance((i + 0.2) / count, lerp(start, end, 0.12), air=height * 0.75))
+        keys.append(stance((i + 0.5) / count, (start + end) / 2, air=height))
+        if steep:
+            keys.append(stance((i + 0.8) / count, lerp(start, end, 0.88), air=height * 0.75))
     keys.append(stance(1.0, points[-1], dip=dip))
     return tuple(keys)
 
@@ -3875,7 +3880,7 @@ def ball_leg_curl(phase):
     ball_y = lerp(-0.74, -0.36, t)
     pose.props['prop_stability_ball'] = (Vector((0, ball_y, 0.3)), NOTHING_HELD)
     shoulders = Vector((0, 0.4, BACK_DEPTH))
-    ankle = Vector((0, ball_y + 0.02, 0.68))
+    ankle = Vector((0, ball_y + 0.02, 0.635))
     hip_y, hip_z = lerp(-0.12, -0.08, t), lerp(0.5, 0.62, t)
     angle = math.degrees(math.atan2(hip_z - shoulders.z, shoulders.y - hip_y))
     body = rot_x(-90 - angle)
@@ -4112,25 +4117,36 @@ def smr_foot(phase):
 
 
 STEP_FOOT = (0.12, -0.42, FOOT_ON_BOX, 0)
+# A foot rises in front of the box, with its toes clear of it, before it travels over the top.
+FOOT_OVER_BOX = (0.12, -0.08, 0.62, 20)
+FOOT_BEFORE_BOX = (0.12, -0.03, 0.28, 25)
 STEP_UP_KEYS = (
     stood(0.0, width=0.12),
-    key(0.15, (-0.03, 0.85), 8, STEP_FOOT, (0.12, ANKLE_Y, ANKLE_Z, 0)),
-    key(0.32, (-0.25, 1.1), 12, STEP_FOOT, (0.12, -0.18, 0.22, 30)),
+    key(0.09, (-0.02, 0.86), 6, FOOT_OVER_BOX, (0.12, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.18, (-0.03, 0.85), 8, STEP_FOOT, (0.12, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.32, (-0.25, 1.1), 12, STEP_FOOT, FOOT_BEFORE_BOX),
+    key(0.39, (-0.34, 1.22), 8, STEP_FOOT, FOOT_OVER_BOX),
     stood(0.46, y=-0.46, floor=BOX_TOP, width=0.12),
     stood(0.54, y=-0.46, floor=BOX_TOP, width=0.12),
-    key(0.68, (-0.25, 1.1), 12, STEP_FOOT, (0.12, -0.18, 0.22, 30)),
-    key(0.85, (-0.03, 0.85), 8, STEP_FOOT, (0.12, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.61, (-0.34, 1.22), 8, STEP_FOOT, FOOT_OVER_BOX),
+    key(0.68, (-0.25, 1.1), 12, STEP_FOOT, FOOT_BEFORE_BOX),
+    key(0.82, (-0.03, 0.85), 8, STEP_FOOT, (0.12, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.91, (-0.02, 0.86), 6, FOOT_OVER_BOX, (0.12, ANKLE_Y, ANKLE_Z, 0)),
     stood(1.0, width=0.12),
 )
 KNEE_UP = (0.12, -0.72, FOOT_ON_BOX + 0.3, -5)
 STEP_UP_KNEE_KEYS = (
     stood(0.0, width=0.12),
-    key(0.15, (-0.03, 0.85), 8, STEP_FOOT, (0.12, ANKLE_Y, ANKLE_Z, 0)),
-    key(0.32, (-0.25, 1.1), 12, STEP_FOOT, (0.12, -0.25, 0.3, 30)),
+    key(0.09, (-0.02, 0.86), 6, FOOT_OVER_BOX, (0.12, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.18, (-0.03, 0.85), 8, STEP_FOOT, (0.12, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.32, (-0.25, 1.1), 12, STEP_FOOT, FOOT_BEFORE_BOX),
+    key(0.4, (-0.34, 1.24), 6, STEP_FOOT, FOOT_OVER_BOX),
     key(0.48, (-0.42, 1.33), 0, STEP_FOOT, KNEE_UP),
     key(0.56, (-0.42, 1.33), 0, STEP_FOOT, KNEE_UP),
-    key(0.7, (-0.25, 1.1), 12, STEP_FOOT, (0.12, -0.25, 0.3, 30)),
-    key(0.85, (-0.03, 0.85), 8, STEP_FOOT, (0.12, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.63, (-0.34, 1.24), 6, STEP_FOOT, FOOT_OVER_BOX),
+    key(0.7, (-0.25, 1.1), 12, STEP_FOOT, FOOT_BEFORE_BOX),
+    key(0.82, (-0.03, 0.85), 8, STEP_FOOT, (0.12, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.91, (-0.02, 0.86), 6, FOOT_OVER_BOX, (0.12, ANKLE_Y, ANKLE_Z, 0)),
     stood(1.0, width=0.12),
 )
 HIP_ADDUCT_KEYS = (
@@ -4173,26 +4189,30 @@ _STEP_DOWN_L = (0.13, _BOX_Y + 0.04, FOOT_ON_BOX, 0)
 BOX_JUMP_KEYS = (
     stood(0.0),
     stood(0.12, dip=0.2),
-    stood(0.22, y=-0.12, air=0.12, tilt=30, lean=2),
-    stood(0.32, y=-0.32, air=0.52, left=(0.13, -0.32, 0.62, 15), lean=8),
+    stood(0.22, y=-0.06, air=0.25, tilt=30, lean=2),
+    stood(0.32, y=-0.18, air=0.55, lean=8),
     stood(0.42, y=_BOX_Y, floor=BOX_TOP, dip=0.22),
     stood(0.54, y=_BOX_Y, floor=BOX_TOP),
     stood(0.6, y=_BOX_Y, floor=BOX_TOP),
-    key(0.74, (-0.25, 1.1), 6, _STEP_DOWN_L, (0.13, -0.08, 0.14, 25)),
+    key(0.67, (-0.36, 1.22), 6, _STEP_DOWN_L, FOOT_OVER_BOX),
+    key(0.74, (-0.25, 1.1), 6, _STEP_DOWN_L, FOOT_BEFORE_BOX),
     key(0.86, (-0.03, 0.84), 4, _STEP_DOWN_L, (0.13, ANKLE_Y, ANKLE_Z, 0)),
+    key(0.93, (-0.02, 0.86), 6, FOOT_OVER_BOX, (0.13, ANKLE_Y, ANKLE_Z, 0)),
     stood(1.0),
 )
-_ON_STOOL = (0.08, 0.59)
+_ON_STOOL = (0.32, 0.59)
 SEATED_BOX_JUMP_KEYS = (
-    key(0.0, _ON_STOOL, 0, (0.15, -0.3, ANKLE_Z, 0)),
-    key(0.12, (0.0, 0.62), 28, (0.15, -0.2, ANKLE_Z, 0)),
-    key(0.24, (-0.1, 0.98), 4, (0.13, -0.15, 0.22, 25)),
-    key(0.34, (-0.3, 1.18), 6, (0.13, -0.3, 0.68, 10)),
+    key(0.0, _ON_STOOL, 0, (0.15, -0.06, ANKLE_Z, 0)),
+    key(0.12, (0.24, 0.62), 28, (0.15, 0.04, ANKLE_Z, 0)),
+    key(0.24, (0.02, 0.98), 4, (0.13, -0.02, 0.28, 25)),
+    key(0.34, (-0.2, 1.18), 6, (0.13, -0.13, 0.68, 10)),
     stood(0.44, y=_BOX_Y, floor=BOX_TOP, dip=0.2),
     stood(0.58, y=_BOX_Y, floor=BOX_TOP),
-    key(0.72, (-0.25, 1.1), 6, _STEP_DOWN_L, (0.13, -0.12, 0.14, 25)),
-    key(0.86, (0.0, 0.8), 8, (0.15, -0.28, ANKLE_Z, 0)),
-    key(1.0, _ON_STOOL, 0, (0.15, -0.3, ANKLE_Z, 0)),
+    key(0.65, (-0.36, 1.22), 6, _STEP_DOWN_L, FOOT_OVER_BOX),
+    key(0.72, (-0.25, 1.1), 6, _STEP_DOWN_L, FOOT_BEFORE_BOX),
+    key(0.79, (-0.02, 0.95), 8, FOOT_OVER_BOX, (0.15, 0.02, ANKLE_Z, 0)),
+    key(0.86, (0.24, 0.8), 8, (0.15, -0.04, ANKLE_Z, 0)),
+    key(1.0, _ON_STOOL, 0, (0.15, -0.06, ANKLE_Z, 0)),
 )
 _HIGH_Y = 0.42
 DEPTH_JUMP_KEYS = (
@@ -4204,7 +4224,9 @@ DEPTH_JUMP_KEYS = (
     stood(0.52, y=-0.14, air=0.42, tilt=20, lean=0),
     stood(0.62, y=-0.2, dip=0.18),
     stood(0.72, y=-0.1),
-    key(0.84, (0.2, 1.0), 10, (0.13, _HIGH_Y, FOOT_ON_BOX, 60), (0.13, 0.0, ANKLE_Z, 0)),
+    key(0.78, (0.0, 0.92), 8, (0.13, 0.12, 0.62, 55), (0.13, -0.05, ANKLE_Z, 0)),
+    key(0.84, (0.3, 0.98), 14, (0.13, _HIGH_Y, FOOT_ON_BOX, 0), (0.13, 0.1, ANKLE_Z, 30)),
+    key(0.92, (0.34, 1.22), 8, (0.13, _HIGH_Y, FOOT_ON_BOX, 0), (0.13, 0.3, 0.62, 55)),
     stood(1.0, y=_HIGH_Y, floor=BOX_TOP),
 )
 _LEFT_ON = (0.12, -0.38, FOOT_ON_BOX, 0)
@@ -4244,13 +4266,13 @@ BOX_SHUFFLE_KEYS = (
 BOX_SIDE_KEYS = (
     stood(0.0, shift=-0.1),
     stood(0.12, dip=0.2, shift=-0.1),
-    stood(0.22, air=0.1, tilt=30, lean=2, shift=0.0),
-    stood(0.32, air=0.5, left=(0.13, ANKLE_Y, 0.64, 15), lean=6, shift=0.24),
+    stood(0.22, air=0.3, tilt=30, lean=2, shift=-0.08),
+    stood(0.32, air=0.58, lean=6, shift=0.12),
     stood(0.42, floor=BOX_TOP, dip=0.22, shift=0.42),
     stood(0.56, floor=BOX_TOP, shift=0.42),
     stood(0.62, floor=BOX_TOP, shift=0.42),
     key(0.76, (0.0, 0.03, 1.1), 6, (0.13, ANKLE_Y, FOOT_ON_BOX, 0), (0.13, ANKLE_Y, 0.16, 25), shift=0.2),
-    key(0.88, (0.0, 0.03, 0.86), 2, (0.25, ANKLE_Y, FOOT_ON_BOX - 0.25, 0), (0.13, ANKLE_Y, ANKLE_Z, 0), shift=0.0),
+    key(0.88, (0.0, 0.03, 0.86), 2, (0.13, ANKLE_Y, 0.52, 40), (0.13, ANKLE_Y, ANKLE_Z, 0), shift=0.0),
     stood(1.0, shift=-0.1),
 )
 LONG_JUMP_KEYS = (
@@ -5034,7 +5056,7 @@ CLIPS.update({
     'calf_raise_on_dumbbell': (with_props(calf_raise(block=0.05, low=-8, high=28, arms=hands_on_hips), prop_dumbbell_l=((0, -0.06, 0.05), rot_z(0))), 'standing', SIDE_TURN),
     'calf_rock': (moves(tuple(rocking_key(*k) for k in ((0.0, 0), (0.25, 30), (0.5, 0), (0.75, -24), (1.0, 0))), hold=on_back()), 'tall', SIDE_TURN),
     'calf_raise_reverse': (with_props(moves((key(0.0, (0.03, 0.885), 0, FEET_APART), key(0.5, (0.03, 0.88), 0, (0.13, ANKLE_Y, ANKLE_Z, -26)), key(1.0, (0.03, 0.885), 0, FEET_APART)), hold=on_back()), prop_platform=(0, 0.1, -PLATFORM * 0.5)), 'tall', SIDE_TURN),
-    'calf_donkey': (with_props(moves(tuple(donkey_key(*k) for k in ((0.0, -12), (0.5, 28), (1.0, -12))), arms=lambda pose, side, sign, trunk: apply_arm(pose, side, trunk, (sign * 0.2, -0.72, 0.8), Vector((sign * 0.8, 0.2, -0.3)), Vector((0, 0, -1)), handle=ACROSS)), prop_platform=(0, -0.08, 0), prop_bench_high=(0, -1.3, 0)), 'standing', SIDE_TURN),
+    'calf_donkey': (with_props(moves(tuple(donkey_key(*k) for k in ((0.0, -12), (0.5, 28), (1.0, -12))), arms=lambda pose, side, sign, trunk: apply_arm(pose, side, trunk, (sign * 0.2, -0.72, 0.75), Vector((sign * 0.8, 0.2, -0.3)), Vector((0, 0, -1)), handle=ACROSS)), prop_platform=(0, -0.08, 0), prop_bench_high=(0, -1.3, 0)), 'standing', SIDE_TURN),
     'calf_seated_bar': (seated_calf(load='bar'), 'bench', SIDE_TURN),
     'calf_seated_one': (seated_calf(load='bell', sides=FLAT_ONLY_LEFT), 'bench', SIDE_TURN),
     'calf_seated': (seated_calf(), 'bench', SIDE_TURN),
@@ -5093,9 +5115,9 @@ CLIPS.update({
     'split_jump': (moves(SPLIT_JUMP_KEYS, arms=pumping()), 'tall', SIDE_TURN),
     'split_jump_bar': (moves(SPLIT_JUMP_KEYS, hold=on_back()), 'tall', SIDE_TURN),
     'box_jump': (with_props(moves(BOX_JUMP_KEYS, arms=JUMP_ARMS), prop_box=BOX_AHEAD), 'tall', SIDE_TURN),
-    'box_jump_seated': (with_props(moves(SEATED_BOX_JUMP_KEYS, hold=goblet), prop_box=BOX_AHEAD, prop_stool=(0, 0.1, 0)), 'tall', SIDE_TURN),
+    'box_jump_seated': (with_props(moves(SEATED_BOX_JUMP_KEYS, hold=goblet), prop_box=BOX_AHEAD, prop_stool=(0, 0.34, 0)), 'tall', SIDE_TURN),
     'depth_jump': (with_props(moves(DEPTH_JUMP_KEYS, arms=JUMP_ARMS), prop_box=(0, 0.42, 0)), 'tall', SIDE_TURN),
-    'box_over': (with_props(moves(hop_chain((0.42, -0.42, 0.42), dip=0.16, height=0.52), arms=JUMP_ARMS), prop_box=(0, 0, 0)), 'tall', SIDE_TURN),
+    'box_over': (with_props(moves(hop_chain((0.42, -0.42, 0.42), dip=0.16, height=0.62, steep=True), arms=JUMP_ARMS), prop_box=(0, 0, 0)), 'tall', SIDE_TURN),
     'box_switch': (with_props(moves(BOX_SWITCH_KEYS, arms=pumping()), prop_box=BOX_AHEAD), 'tall', SIDE_TURN),
     'box_push_off': (with_props(moves(BOX_PUSH_KEYS, arms=JUMP_ARMS), prop_box=BOX_AHEAD), 'tall', SIDE_TURN),
     'box_shuffle': (with_props(moves(BOX_SHUFFLE_KEYS, arms=JUMP_ARMS, pole=(0.25, -1, 0)), prop_box=(ORIGIN, rot_z(90))), 'tall', 10),
@@ -5388,7 +5410,7 @@ def preacher_seat(pose, t=0):
 
 def bench_dip(phase):
     pose = Pose()
-    pose.props['prop_box'] = (Vector((0, 0.3, 0)), NOTHING_HELD)
+    pose.props['prop_box'] = (Vector((0, 0.34, 0)), NOTHING_HELD)
     t = ease(phase)
     trunk = rot_x(4)
     shoulder_z = lerp(1.07, 0.8, t)
@@ -5935,7 +5957,9 @@ def ball_under_calves(pose, trunk):
 
 def ball_under_shins(pose, trunk):
     ankle = (pose.head['foot_l'] + pose.head['foot_r']) / 2
-    pose.props['prop_stability_ball'] = (Vector((0, ankle.y + 0.1, 0.3)), NOTHING_HELD)
+    # Under the lower shins with the legs out, rolling forward under the ankles as the knees come in.
+    tucked = (PULL_IN_FEET_OUT[1] - ankle.y) / (PULL_IN_FEET_OUT[1] - PULL_IN_FEET_IN[1])
+    pose.props['prop_stability_ball'] = (Vector((0, ankle.y + lerp(-0.08, 0.26, math.sqrt(max(tucked, 0.0))), 0.3)), NOTHING_HELD)
 
 
 def pull_in_arms(pose, side, sign, trunk):
@@ -6060,8 +6084,8 @@ SEAT_TUCKED = (0.11, -0.34, 0.66, -50)
 SEAT_LEG_TUCK = rep(torso(lean=-32, pelvis=-20, y=0.03, z=0.59, left=SEAT_TUCK_LEGS), torso(lean=-8, pelvis=-38, y=0.03, z=0.59, left=SEAT_TUCKED))
 BALL_CRUNCH = rep(on_the_back(lean=-82, pelvis=-74, y=-0.12, z=0.62, left=(0.17, -0.72, ANKLE_Z, 0)), on_the_back(lean=-40, pelvis=-68, y=-0.12, z=0.62, nod=18, left=(0.17, -0.72, ANKLE_Z, 0)))
 BUTT_UPS = rep(torso(lean=80, y=0.33, z=0.28, left=(0.07, 1.1, 0.1, 40), nod=-20), torso(lean=118, y=0.28, z=0.55, left=(0.07, 0.98, 0.1, 40), nod=-20))
-PULL_IN_FEET_OUT, PULL_IN_FEET_IN = (0.09, 0.82, 0.48, 145), (0.09, 0.4, 0.42, 150)
-BALL_PULL_IN = rep(torso(lean=78, y=0.06, z=0.46, left=PULL_IN_FEET_OUT, nod=-22), torso(lean=88, pelvis=112, y=-0.06, z=0.5, left=PULL_IN_FEET_IN, nod=-22))
+PULL_IN_FEET_OUT, PULL_IN_FEET_IN = (0.09, 0.82, 0.68, 145), (0.09, 0.4, 0.56, 150)
+BALL_PULL_IN = rep(torso(lean=78, y=0.06, z=0.48, left=PULL_IN_FEET_OUT, nod=-22), torso(lean=88, pelvis=112, y=-0.06, z=0.58, left=PULL_IN_FEET_IN, nod=-22))
 VACUUM = rep(torso(z=0.885), torso(lean=2, pelvis=-5, z=0.885))
 SIT_REACH = dict(y=0.03, z=0.14, left=(0.06, -0.26, 0.09, -35))
 SEATED_LEAN_OVER = ((0.0, torso(side=-20, **SIT_REACH)), (0.5, torso(side=20, **SIT_REACH)), (1.0, torso(side=-20, **SIT_REACH)))
@@ -6090,7 +6114,6 @@ CLIPS.update({
     'curl_reverse_dumbbell': (elbow_clip(standing(), ELBOWS_DOWN, AHEAD, CURL, palm='down', prop='prop_dumbbell'), 'standing', SIDE_TURN),
     'curl_zottman': (elbow_clip(standing(), ELBOWS_DOWN, AHEAD, CURL, prop='prop_dumbbell', turning=ZOTTMAN_TURN), 'standing', SIDE_TURN),
     'curl_concentration_standing': (elbow_clip(hinge(62, knee=145), (0.02, -0.08, -1), AHEAD, CURL, prop='prop_dumbbell', arms=FLAT_ONLY_LEFT, rest=hand_on_knee), 'standing', SIDE_TURN),
-    'curl_over_incline': (with_props(elbow_clip(standing(), (0.02, -0.45, -1), (0, -1, 0.45), (10, 122), prop='prop_dumbbell', arms=FLAT_ONLY_LEFT), prop_bench_incline=(0, -0.78, 0.12)), 'standing', SIDE_TURN),
 
     # Biceps: seated and lying
     'curl_seated': (elbow_clip(seated(), ELBOWS_DOWN, AHEAD, CURL, prop='prop_dumbbell'), 'standing', SIDE_TURN),

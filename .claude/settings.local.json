@@ -41,7 +41,14 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 3 http://localhost:8098/)",
       "Bash(rm -f /tmp/expo-dev-server.log)",
       "Bash(rm -rf apps/app/.expo apps/app/dist)",
-      "Bash(npx skills *)"
+      "Bash(npx skills *)",
+      "Bash(git status *)",
+      "Bash(git check-ignore *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npx playwright *)",
+      "Bash(node -e \"console.log\\(require\\('/c/Projects/GYM/node_modules/three/package.json'\\).version\\)\")",
+      "Bash(npm -v)"
     ]
   }
 }

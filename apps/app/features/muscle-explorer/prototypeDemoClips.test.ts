@@ -98,6 +98,8 @@ describe('demoForExercise', () => {
     expect(demoForExercise('Pushups')?.note).toBeUndefined();
     expect(demoForExercise('Lying Supine Dumbbell Curl')?.note).toMatch(/not shown/);
     expect(demoForExercise('All Fours Quad Stretch')?.note).toMatch(/short of the foot/);
+    expect(demoForExercise('Hamstring-SMR')?.note).toMatch(/one leg at a time/);
+    expect(demoForExercise('Standing One-Arm Dumbbell Curl Over Incline Bench')?.note).toMatch(/preacher bench/);
   });
 
   test('an exercise with its own motion is not mapped to a similar one', () => {

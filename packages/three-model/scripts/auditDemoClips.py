@@ -9,8 +9,8 @@
 #
 # - EXPECTATIONS are what an exercise must look like (a press locks out, a curl
 #   keeps the elbow still). They always fail, and no baseline can excuse them.
-# - Flags are general faults (joint limits, a prop through the body, a hand short
-#   of its target). Some are known and harmless, so each is compared with
+# - Flags are general faults (joint limits, a prop through the body or apart from
+#   it, a hand short of its target). Some are known and harmless, so each is compared with
 #   demoClipAudit.baseline.tsv: a new flag, or one worse than it was, fails.
 #
 # --update-baseline accepts the current flags and stamps the baseline with hashes
@@ -31,6 +31,7 @@ from pathlib import Path
 
 import bpy
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 parser = argparse.ArgumentParser(prog='auditDemoClips.py')
 parser.add_argument('--update-baseline', action='store_true')
@@ -54,6 +55,15 @@ exec(compile(source[:source.rindex('\nmain()')], str(BUILD_SCRIPT), 'exec'), bui
 CLIPS, REST, REPS_LONG, REP_SAMPLES = (build[name] for name in ('CLIPS', 'REST', 'REPS_LONG', 'REP_SAMPLES'))
 CYCLE_SECONDS, DIGIT_BONES, GRIP_ALONG = (build[name] for name in ('CYCLE_SECONDS', 'DIGIT_BONES', 'GRIP_ALONG'))
 
+# Props that bear the body, and how far from one it may be (metres, for the capsules in BODY_CAPSULES).
+# Held or thrown props are left out, as are racks, which hold the bar and not the body.
+SUPPORT_PROPS = ('prop_back_pad', 'prop_bench_decline', 'prop_bench_flat', 'prop_bench_high', 'prop_bench_hyperextension', 'prop_bench_incline', 'prop_bike',
+                 'prop_box', 'prop_dip_bars', 'prop_foam_roller', 'prop_leg_pad', 'prop_platform', 'prop_preacher', 'prop_pulldown_seat', 'prop_row_seat',
+                 'prop_rower', 'prop_seat', 'prop_seat_pad', 'prop_stability_ball', 'prop_stool', 'prop_wall')
+SUPPORT_FLOATS = 0.04
+SUPPORT_SINKS = -0.06
+BODY_CAPSULES = (('thigh', 0.06), ('shin', 0.04), ('foot', 0.035), ('upper_arm', 0.04), ('forearm', 0.03), ('hand', 0.025))
+ALL_SIDES = tuple(Vector(direction) for direction in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)))
 # How much worse than its baseline a flag may measure before failing, by unit.
 TOLERANCE_DEGREES = 1.0
 TOLERANCE_METRES = 0.005
@@ -95,6 +105,12 @@ for clips, part, travel, why in ((('smr_hamstring', 'smr_quad', 'smr_side'), 'th
                      (clips, f'roller_gap_{part}', 'min', -0.045, None, f'the roller does not pass through the {part}'),
                      (clips, f'roller_along_{part}', 'range', travel, None, why))
 EXPECTATIONS += ((('foam_roll_lower_back',), 'roller_along_torso', 'max', None, 0.3, 'the roller stays under the lower back, not the upper'),)
+# Clips whose whole rep rests on a prop: never above it, nor sunk into it. Clips that step or jump onto one only must not pass through it.
+EXPECTATIONS += (
+    (('ball_leg_curl', 'ball_pull_in'), 'support_gap_prop_stability_ball', 'max', None, SUPPORT_FLOATS, 'the legs rest on the ball'),
+    (('ball_leg_curl', 'ball_pull_in', 'hyperextension_ball', 'stretch_ball_pyramid'), 'support_gap_prop_stability_ball', 'min', SUPPORT_SINKS, None, 'the body does not pass through the ball'),
+    (('step_up_bar', 'step_up_dumbbell', 'step_up_knee', 'box_jump', 'box_jump_seated', 'box_jump_side', 'box_over', 'depth_jump', 'bench_dip'), 'support_gap_prop_box', 'min', SUPPORT_SINKS, None, 'the body does not pass through the box'),
+)
 # The torso turns towards the hands. Measured as a correlation over the rep.
 TURN_WITH_HANDS = ('wood_chop_down', 'wood_chop_up', 'spell_caster', 'landmine_180')
 TURN_CORRELATION = 0.8
@@ -146,10 +162,31 @@ def measure_roller(pose, m):
         m[f'roller_gap_{part}'], m[f'roller_along_{part}'] = min(gaps)
 
 
+def support_gap(pose, bone):
+    """Signed distance from the body to a prop's true surface. A point is inside only if the prop surrounds it on all sides: normals on joined parts can't be trusted."""
+    tree = SUPPORT_TREES[bone]
+    at, rotation = pose.props[bone]
+    inverse = rotation.inverted()
+    head_mid = pose.head['head'].lerp(tail_of(pose, 'head'), 0.5)
+    capsules = [(pose.head['hips'], tail_of(pose, 'spine2'), 0.09), (head_mid, head_mid, 0.085)]
+    for side in ('_l', '_r'):
+        capsules += [(pose.head[part + side], tail_of(pose, part + side), radius) for part, radius in BODY_CAPSULES]
+    nearest = math.inf
+    for a, b, radius in capsules:
+        for i in range(9):
+            point = inverse @ (a.lerp(b, i / 8) - at)
+            distance = (point - tree.find_nearest(point)[0]).length
+            inside = all(tree.ray_cast(point, direction)[0] is not None for direction in ALL_SIDES)
+            nearest = min(nearest, (-distance if inside else distance) - radius)
+    return nearest
+
+
 def measure(pose):
     m = {}
     if 'prop_foam_roller' in pose.props:
         measure_roller(pose, m)
+    for bone in SUPPORT_TREES.keys() & pose.props.keys():
+        m[f'support_gap_{bone}'] = support_gap(pose, bone)
     trunk = pose.rotation['spine2']
     up = trunk @ Vector((0, 0, 1))
     chest = trunk @ Vector((0, -1, 0))
@@ -294,6 +331,9 @@ def flags_for(poses, measures, is_cycle, limb_gaps):
     for subject, depth in hits.items():
         flag('prop_through_body', subject, depth, 0.02)
     flag('arm_through_torso', '', max(arm_in_torso(pose) for pose in poses), 0.03)
+    for bone in SUPPORT_TREES.keys() & poses[0].props.keys():
+        flag('prop_floating', bone, peak(f'support_gap_{bone}'), SUPPORT_FLOATS)
+        flag('prop_sinking', bone, -min(m[f'support_gap_{bone}'] for m in measures), -SUPPORT_SINKS)
     for subject, gap in limb_gaps.items():
         flag('limb_short', subject, gap, 0.025)
     return flags
@@ -348,10 +388,13 @@ def worse_than(kind, value, known):
 
 # Props have to exist as meshes to know their shape; the scene is otherwise untouched.
 bpy.ops.wm.read_factory_settings(use_empty=True)
-PROP_VERTS = {}
+PROP_VERTS, SUPPORT_TREES = {}, {}
 for mesh_name in build['PROP_MESHES']:
     prop = build['add_prop'](mesh_name)
-    PROP_VERTS[mesh_name.replace('-', '_')] = [v.co.copy() for v in prop.data.vertices]
+    bone = mesh_name.replace('-', '_')
+    PROP_VERTS[bone] = [v.co.copy() for v in prop.data.vertices]
+    if bone in SUPPORT_PROPS:
+        SUPPORT_TREES[bone] = BVHTree.FromPolygons(PROP_VERTS[bone], [list(polygon.vertices) for polygon in prop.data.polygons])
     bpy.data.objects.remove(prop)
 
 # Limbs that stop short of their target are only visible inside the solvers, so wrap them.

@@ -750,7 +750,7 @@ const DEMO_BY_EXERCISE_NAME: Readonly<Record<string, ExerciseDemo>> = {
   'Standing Dumbbell Reverse Curl': { clip: 'curl_reverse_dumbbell' },
   'Zottman Curl': { clip: 'curl_zottman' },
   'Standing Concentration Curl': { clip: 'curl_concentration_standing', note: ONE_SIDE },
-  'Standing One-Arm Dumbbell Curl Over Incline Bench': { clip: 'curl_over_incline', note: ONE_SIDE },
+  'Standing One-Arm Dumbbell Curl Over Incline Bench': { clip: 'curl_preacher_one_arm', note: 'Shown on one side only, seated at a preacher bench; this exercise stands leaning over an incline bench.' },
   'Seated Dumbbell Curl': { clip: 'curl_seated' },
   'Seated Dumbbell Inner Biceps Curl': { clip: 'curl_seated_inner' },
   'Concentration Curls': { clip: 'curl_concentration', note: ONE_SIDE },
