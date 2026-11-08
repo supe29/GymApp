@@ -19,8 +19,7 @@
 // platforms), which is why this file stays platform-agnostic.
 
 import { useLoader, useFrame, type ThreeEvent } from '@react-three/fiber';
-import { Asset } from 'expo-asset';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -32,67 +31,19 @@ import {
   type RegionId,
 } from '../interactionContract';
 import { MUSCLE_REGION_IDS } from '../muscleRegions';
-import { PRIMARY_PEAK_OPACITY, pulseOpacity, regionPulsePeakOpacity } from '../pulseAnimation';
+import { regionPulsePeakOpacity } from '../pulseAnimation';
 import { TARGET_HEIGHT, normalizeBodyScene } from './meshNormalization';
+import { applyTint, exerciseTint, prepareMaterials, useAssetUri } from './sceneStyle';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BODY_MODEL_ASSET = require('../../assets/body-model.glb');
 
-function useBodyModelUri(): string | null {
-  const [uri, setUri] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    const asset = Asset.fromModule(BODY_MODEL_ASSET);
-    asset.downloadAsync().then(() => {
-      if (!cancelled) setUri(asset.localUri ?? asset.uri);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return uri;
-}
-
-/** Neutral display colors: selectable muscles, other (not selectable) muscles, skeleton. */
-const REGION_BASE_COLOR = new THREE.Color('#bcc3cb');
-const CONTEXT_MUSCLE_COLOR = new THREE.Color('#a4abb4');
-const BONE_COLOR = new THREE.Color('#e3ddd0');
-/** Selected/hovered regions and an active exercise's primary muscles. */
-const PRIMARY_COLOR = new THREE.Color('#e0442f');
-/** An active exercise's secondary muscles. */
-const SECONDARY_COLOR = new THREE.Color('#f0a33a');
 /** Tint strength for a selected region (0 = base color, 1 = full highlight). */
 const SELECTED_TINT = 0.9;
 /** Tint strength for a region under the mouse (web only; touch has no hover). */
 const HOVER_TINT = 0.35;
-/** A pulsing region's tint swings between these, so targeted muscles never fade out completely. */
-const PULSE_MIN_TINT = 0.45;
-const PULSE_MAX_TINT = 1;
 /** Pointer travel (px) between press and release beyond which a release ends a drag rather than tapping. */
 const TAP_MAX_TRAVEL_PX = 8;
-
-/**
- * Gives every mesh its own material in its display color, and returns the
- * materials of region meshes indexed like MUSCLE_REGION_IDS (null where
- * the asset has no mesh for a region; checkRegionCoverage guards that).
- */
-function prepareMaterials(root: THREE.Object3D): (THREE.MeshStandardMaterial | null)[] {
-  const regionMaterials: (THREE.MeshStandardMaterial | null)[] = MUSCLE_REGION_IDS.map(() => null);
-  root.traverse((object) => {
-    const mesh = object as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    const regionId = regionIdFromMeshName(mesh.name, MUSCLE_REGION_IDS);
-    const isBone = mesh.name === 'bone';
-    const material = new THREE.MeshStandardMaterial({
-      color: regionId ? REGION_BASE_COLOR : isBone ? BONE_COLOR : CONTEXT_MUSCLE_COLOR,
-      roughness: isBone ? 0.75 : 0.6,
-      metalness: 0,
-    });
-    mesh.material = material;
-    if (regionId) regionMaterials[MUSCLE_REGION_IDS.indexOf(regionId)] = material;
-  });
-  return regionMaterials;
-}
 
 interface BodyMeshProps {
   selectedRegionId: string | null;
@@ -121,16 +72,10 @@ function BodyMeshLoader({ uri, selectedRegionId, activeExerciseMuscles, onRegion
     MUSCLE_REGION_IDS.forEach((regionId, i) => {
       const material = regionMaterials[i];
       if (!material) return;
-      let tint = 0;
-      const peak = peakByRegion[i];
-      if (peak > 0) {
-        const wave = pulseOpacity(frameState.clock.elapsedTime, peak) / peak;
-        const strength = PULSE_MIN_TINT + (PULSE_MAX_TINT - PULSE_MIN_TINT) * wave;
-        tint = peak === PRIMARY_PEAK_OPACITY ? strength : -strength;
-      }
+      let tint = exerciseTint(frameState.clock.elapsedTime, peakByRegion[i]);
       if (regionId === selectedRegionId) tint = Math.max(tint, SELECTED_TINT);
       else if (i === hoveredRegionIndex.current && tint === 0) tint = HOVER_TINT;
-      material.color.copy(REGION_BASE_COLOR).lerp(tint < 0 ? SECONDARY_COLOR : PRIMARY_COLOR, Math.abs(tint));
+      applyTint(material, tint);
     });
   });
 
@@ -170,7 +115,7 @@ function BodyMeshLoader({ uri, selectedRegionId, activeExerciseMuscles, onRegion
 }
 
 function BodyMesh(props: BodyMeshProps) {
-  const uri = useBodyModelUri();
+  const uri = useAssetUri(BODY_MODEL_ASSET);
   if (!uri) return null;
   return (
     <Suspense fallback={null}>

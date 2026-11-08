@@ -52,6 +52,15 @@ terms. This mesh replaces the Mixamo body recorded in
   release, confirm with DBCLS that no further terms apply. This is tracked in
   `/docs/release-checklist.md`.
 
+## Exercise demo figure
+
+`packages/three-model/assets/body-demo.glb` is a further derivative: it reduces
+`body-model.glb`, adds a skeleton, skin weights and plain equipment props, and
+authors exercise animations (`packages/three-model/scripts/buildDemoMesh.py`).
+The same terms apply. The file, animations included, is offered under CC BY-SA
+4.0 (`assets/body-demo.LICENSE.md`), and the credit line must stay visible
+wherever the figure is shown.
+
 ## Engineering notes
 
 - The mesh is static (no rig) and stands in the anatomical position, arms at

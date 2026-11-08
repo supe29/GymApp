@@ -15,6 +15,16 @@ export interface BodyModelProps {
   activeExerciseMuscles?: { primary: readonly string[]; secondary: readonly string[] } | null;
 }
 
+export interface DemoFigureProps {
+  /** Movement-pattern clip to play; `null` stands the figure in its rest pose. */
+  clip: string | null;
+  /** Muscle-group keys to highlight, as in BodyModelProps.activeExerciseMuscles. */
+  muscles?: { primary: readonly string[]; secondary: readonly string[] } | null;
+  paused?: boolean;
+  /** Holds the clip at this point of the rep (0 to 1) instead of playing it (reduced motion). */
+  holdPhase?: number | null;
+}
+
 /** Imperative handle so a screen can provide one cross-platform "Reset view" control regardless of which adapter is mounted. */
 export interface BodyModelHandle {
   reset: () => void;

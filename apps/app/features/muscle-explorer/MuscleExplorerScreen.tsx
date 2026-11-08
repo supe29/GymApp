@@ -8,15 +8,18 @@ import {
 } from 'api-client';
 import { filterByEquipmentSubset, filterByMuscleGroup, type ExerciseWithTags } from 'core';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BodyModel, type BodyModelHandle, type ModelSide } from 'three-model';
+import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { BodyModel, DemoFigure, type BodyModelHandle, type ModelSide } from 'three-model';
 
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import MuscleListFallback from './MuscleListFallback';
+import { demoForExercise } from './prototypeDemoClips';
 
 /** Match the 3D model's highlight colors (packages/three-model shared/BodyModelScene.tsx). */
 const PRIMARY_MUSCLE_COLOR = '#e0442f';
 const SECONDARY_MUSCLE_COLOR = '#f0a33a';
+/** Below this window width the demo figure stacks under the main model. */
+const SIDE_BY_SIDE_MIN_WIDTH = 700;
 
 export interface MuscleExplorerScreenProps {
   client?: GymSupabaseClient;
@@ -43,7 +46,9 @@ export default function MuscleExplorerScreen({
   const [loaded, setLoaded] = useState(false);
   const [activeExercise, setActiveExercise] = useState<ExerciseWithTags | null>(null);
   const [side, setSide] = useState<ModelSide>('front');
+  const [demoPaused, setDemoPaused] = useState(false);
   const bodyModelRef = useRef<BodyModelHandle>(null);
+  const { width: windowWidth } = useWindowDimensions();
 
   useEffect(() => {
     async function load() {
@@ -75,6 +80,14 @@ export default function MuscleExplorerScreen({
   }, [exercises, selectedRegionId, availableEquipmentKeys]);
 
   const selectedRegionLabel = muscleGroups.find((m) => m.key === selectedRegionId)?.display_name;
+  const activeMuscles = useMemo(
+    () =>
+      activeExercise
+        ? { primary: activeExercise.primaryMuscleKeys, secondary: activeExercise.secondaryMuscleKeys }
+        : null,
+    [activeExercise],
+  );
+  const demo = activeExercise ? demoForExercise(activeExercise.name) : null;
 
   return (
     <View style={styles.container}>
@@ -102,18 +115,18 @@ export default function MuscleExplorerScreen({
 
       <View style={styles.viewArea}>
         {viewMode === '3d' ? (
-          <>
+          <View
+            testID="muscle-explorer-models"
+            style={[styles.models, windowWidth >= SIDE_BY_SIDE_MIN_WIDTH && styles.modelsSideBySide]}
+          >
+            <View style={styles.modelPane}>
             <BodyModel
               ref={bodyModelRef}
               onSelectionChange={(id) => {
                 setSelectedRegionId(id);
                 setActiveExercise(null);
               }}
-              activeExerciseMuscles={
-                activeExercise
-                  ? { primary: activeExercise.primaryMuscleKeys, secondary: activeExercise.secondaryMuscleKeys }
-                  : null
-              }
+              activeExerciseMuscles={activeMuscles}
             />
             <View style={styles.viewControls}>
               <View style={styles.sideToggle}>
@@ -153,7 +166,29 @@ export default function MuscleExplorerScreen({
             <Text testID="muscle-explorer-model-credit" style={styles.modelCredit}>
               3D anatomy adapted from Z-Anatomy (CC BY-SA 4.0), based on BodyParts3D © DBCLS (CC BY-SA 2.1 JP)
             </Text>
-          </>
+            </View>
+            {activeExercise ? (
+              <View testID="muscle-explorer-demo" style={styles.modelPane}>
+                <DemoFigure clip={demo?.clip ?? null} muscles={activeMuscles} paused={demoPaused} />
+                <Text numberOfLines={1} style={styles.demoTitle}>{activeExercise.name}</Text>
+                {demo ? (
+                  <Pressable
+                    testID="muscle-explorer-demo-pause"
+                    style={[styles.resetButton, styles.demoPause]}
+                    onPress={() => setDemoPaused((paused) => !paused)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.toggleText, styles.toggleTextActive]}>{demoPaused ? 'Play' : 'Pause'}</Text>
+                  </Pressable>
+                ) : null}
+                <Text testID="muscle-explorer-demo-note" style={styles.demoNote}>
+                  {demo
+                    ? `Shows general movement, not personal coaching.${demo.note ? ` ${demo.note}` : ''}`
+                    : 'No movement demo for this exercise yet. Worked muscles are highlighted.'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         ) : (
           <MuscleListFallback
             muscleGroups={muscleGroups}
@@ -227,6 +262,12 @@ const styles = StyleSheet.create({
   toggleText: { fontWeight: '600', color: '#111' },
   toggleTextActive: { color: '#fff' },
   viewArea: { flex: 1, minHeight: 240 },
+  models: { flex: 1 },
+  modelsSideBySide: { flexDirection: 'row' },
+  modelPane: { flex: 1, position: 'relative' },
+  demoTitle: { position: 'absolute', top: 12, left: 12, right: 90, fontWeight: '600', color: '#111' },
+  demoPause: { position: 'absolute', top: 8, right: 8 },
+  demoNote: { position: 'absolute', bottom: 4, left: 8, right: 8, color: '#444', fontSize: 11, textAlign: 'center' },
   viewControls: { position: 'absolute', top: 8, right: 8, alignItems: 'flex-end', gap: 8 },
   sideToggle: { flexDirection: 'row', borderWidth: 1, borderColor: '#111', borderRadius: 8, overflow: 'hidden' },
   sideButton: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#fff' },
