@@ -28,14 +28,17 @@ export interface Database {
           goal: 'fat_loss' | 'muscle_gain' | 'strength' | 'general_fitness';
           training_days_per_week: number;
           unit_preference: 'metric' | 'imperial';
+          /** ISO weekdays (1=Mon..7=Sun), one per training day; null = not chosen (0011). */
+          training_weekdays: number[] | null;
           created_at: string;
           updated_at: string;
         };
         Insert: Omit<
           Database['public']['Tables']['profiles']['Row'],
-          'created_at' | 'updated_at' | 'unit_preference'
+          'created_at' | 'updated_at' | 'unit_preference' | 'training_weekdays'
         > & {
           unit_preference?: 'metric' | 'imperial';
+          training_weekdays?: number[] | null;
         };
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
         Relationships: never[];
@@ -320,6 +323,26 @@ export interface Database {
           'id' | 'created_at' | 'measured_at'
         > & { id?: string; measured_at?: string };
         Update: Partial<Database['public']['Tables']['weight_entries']['Insert']>;
+        Relationships: never[];
+      };
+      schedule_adjustments: {
+        Row: {
+          id: string;
+          user_id: string;
+          workout_plan_id: string;
+          planned_session_id: string;
+          /** Monday of the week the choice applies to (YYYY-MM-DD). */
+          week_start: string;
+          action: 'skip' | 'move' | 'merge';
+          target_date: string | null;
+          merge_into_planned_session_id: string | null;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database['public']['Tables']['schedule_adjustments']['Row'],
+          'id' | 'created_at' | 'target_date' | 'merge_into_planned_session_id'
+        > & { id?: string; target_date?: string | null; merge_into_planned_session_id?: string | null };
+        Update: Partial<Database['public']['Tables']['schedule_adjustments']['Insert']>;
         Relationships: never[];
       };
       personal_records: {

@@ -60,7 +60,7 @@ after(async () => {
 // ---------------------------------------------------------------------
 
 describe('migration apply', () => {
-  test('all 10 migrations apply in order and produce the expected schema', async () => {
+  test('all 11 migrations apply in order and produce the expected schema', async () => {
     const { rows } = await asSuperuser(
       db,
       `select table_name from information_schema.tables where table_schema = 'public' order by table_name`,
@@ -85,6 +85,7 @@ describe('migration apply', () => {
       'food_log_entries',
       'weight_entries',
       'personal_records',
+      'schedule_adjustments',
     ]) {
       assert.ok(tables.includes(expected), `expected table ${expected} to exist`);
     }
@@ -102,7 +103,7 @@ describe('migration apply', () => {
       second.db,
       `select count(*)::int as n from information_schema.tables where table_schema = 'public'`,
     );
-    assert.equal(second.applied.length, 10);
+    assert.equal(second.applied.length, 11);
     assert.ok(rows[0].n >= 18);
     await second.db.close();
   });
@@ -429,7 +430,150 @@ const specs = [
     }),
     delete: (id) => ({ sql: 'delete from public.personal_records where id = $1', params: [id] }),
   },
+  {
+    name: 'schedule_adjustments',
+    seed: async () => {
+      const plan = await asUser(
+        db,
+        userA,
+        `insert into public.workout_plans (user_id, split_type) values ($1, 'full_body') returning id`,
+        [userA],
+      );
+      const session = await asUser(
+        db,
+        userA,
+        `insert into public.planned_sessions (workout_plan_id, user_id, day_order, name) values ($1, $2, 1, 'Day 1') returning id`,
+        [plan.rows[0].id, userA],
+      );
+      const { rows } = await asUser(
+        db,
+        userA,
+        `insert into public.schedule_adjustments (user_id, workout_plan_id, planned_session_id, week_start, action)
+         values ($1, $2, $3, '2026-11-09', 'skip') returning id`,
+        [userA, plan.rows[0].id, session.rows[0].id],
+      );
+      return rows[0].id;
+    },
+    select: (id) => ({ sql: 'select 1 from public.schedule_adjustments where id = $1', params: [id] }),
+    update: null,
+    delete: (id) => ({ sql: 'delete from public.schedule_adjustments where id = $1', params: [id] }),
+  },
 ];
+
+// ---------------------------------------------------------------------
+// FR-2.5/OQ-5: profiles.training_weekdays and schedule_adjustments constraints
+// ---------------------------------------------------------------------
+
+describe('FR-2.5: profiles.training_weekdays', () => {
+  test('accepts NULL or exactly training_days_per_week weekdays in 1..7', async () => {
+    const userId = await seedUser(db, { trainingDaysPerWeek: 3 });
+    await assert.doesNotReject(
+      asUser(db, userId, 'update public.profiles set training_weekdays = $2 where user_id = $1', [userId, [1, 3, 5]]),
+    );
+    await assert.doesNotReject(
+      asUser(db, userId, 'update public.profiles set training_weekdays = null where user_id = $1', [userId]),
+    );
+  });
+
+  test('changing training_days_per_week clears stale weekdays instead of failing the profile save', async () => {
+    const userId = await seedUser(db, { trainingDaysPerWeek: 3 });
+    await asUser(db, userId, 'update public.profiles set training_weekdays = $2 where user_id = $1', [userId, [1, 3, 5]]);
+
+    // Same day count (e.g. an unrelated profile edit): weekdays are kept.
+    await asUser(db, userId, 'update public.profiles set training_days_per_week = 3, age = 31 where user_id = $1', [userId]);
+    let { rows } = await asSuperuser(db, 'select training_weekdays from public.profiles where user_id = $1', [userId]);
+    assert.deepEqual(rows[0].training_weekdays, [1, 3, 5]);
+
+    // New day count without new weekdays: cleared, and the save succeeds.
+    await asUser(db, userId, 'update public.profiles set training_days_per_week = 4 where user_id = $1', [userId]);
+    ({ rows } = await asSuperuser(db, 'select training_weekdays from public.profiles where user_id = $1', [userId]));
+    assert.equal(rows[0].training_weekdays, null);
+
+    // New day count with matching new weekdays: kept.
+    await asUser(db, userId, 'update public.profiles set training_days_per_week = 2, training_weekdays = $2 where user_id = $1', [userId, [2, 4]]);
+    ({ rows } = await asSuperuser(db, 'select training_weekdays from public.profiles where user_id = $1', [userId]));
+    assert.deepEqual(rows[0].training_weekdays, [2, 4]);
+  });
+
+  test('rejects a length that differs from training_days_per_week, and out-of-range weekdays', async () => {
+    const userId = await seedUser(db, { trainingDaysPerWeek: 3 });
+    await assert.rejects(
+      asUser(db, userId, 'update public.profiles set training_weekdays = $2 where user_id = $1', [userId, [1, 3]]),
+      /violates check constraint/i,
+    );
+    await assert.rejects(
+      asUser(db, userId, 'update public.profiles set training_weekdays = $2 where user_id = $1', [userId, [0, 3, 5]]),
+      /violates check constraint/i,
+    );
+    await assert.rejects(
+      asUser(db, userId, 'update public.profiles set training_weekdays = $2 where user_id = $1', [userId, [1, 3, 8]]),
+      /violates check constraint/i,
+    );
+  });
+});
+
+describe('FR-2.6/DR-6: schedule_adjustments constraints', () => {
+  async function planAndSession(userId) {
+    const plan = await asUser(db, userId, `insert into public.workout_plans (user_id, split_type) values ($1, 'full_body') returning id`, [userId]);
+    const session = await asUser(
+      db,
+      userId,
+      `insert into public.planned_sessions (workout_plan_id, user_id, day_order, name) values ($1, $2, 1, 'Day 1') returning id`,
+      [plan.rows[0].id, userId],
+    );
+    return { planId: plan.rows[0].id, sessionId: session.rows[0].id };
+  }
+
+  test('week_start must be a Monday, and a move needs a target date', async () => {
+    const userId = await seedUser(db);
+    const { planId, sessionId } = await planAndSession(userId);
+    await assert.rejects(
+      asUser(
+        db,
+        userId,
+        `insert into public.schedule_adjustments (user_id, workout_plan_id, planned_session_id, week_start, action) values ($1, $2, $3, '2026-11-10', 'skip')`,
+        [userId, planId, sessionId],
+      ),
+      /violates check constraint/i,
+    );
+    await assert.rejects(
+      asUser(
+        db,
+        userId,
+        `insert into public.schedule_adjustments (user_id, workout_plan_id, planned_session_id, week_start, action) values ($1, $2, $3, '2026-11-09', 'move')`,
+        [userId, planId, sessionId],
+      ),
+      /violates check constraint/i,
+    );
+  });
+
+  test('one choice per session per week', async () => {
+    const userId = await seedUser(db);
+    const { planId, sessionId } = await planAndSession(userId);
+    const insert = () =>
+      asUser(
+        db,
+        userId,
+        `insert into public.schedule_adjustments (user_id, workout_plan_id, planned_session_id, week_start, action) values ($1, $2, $3, '2026-11-09', 'skip')`,
+        [userId, planId, sessionId],
+      );
+    await insert();
+    await assert.rejects(insert(), /duplicate key|unique/i);
+  });
+
+  test('a user cannot create an adjustment on behalf of someone else', async () => {
+    const { planId, sessionId } = await planAndSession(userA);
+    await assert.rejects(
+      asUser(
+        db,
+        userB,
+        `insert into public.schedule_adjustments (user_id, workout_plan_id, planned_session_id, week_start, action) values ($1, $2, $3, '2026-11-16', 'skip')`,
+        [userA, planId, sessionId],
+      ),
+      /row-level security|permission denied/i,
+    );
+  });
+});
 
 describe('RLS: cross-user rejection on every user-scoped table', () => {
   for (const spec of specs) {

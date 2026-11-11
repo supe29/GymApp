@@ -13,3 +13,4 @@ export * from './foodLog';
 export * from './weightEntries';
 export * from './personalRecords';
 export * from './sessionInsights';
+export * from './scheduleAdjustments';

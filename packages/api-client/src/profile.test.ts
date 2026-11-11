@@ -20,6 +20,7 @@ const fakeProfile: ProfileRow = {
   goal: 'general_fitness',
   training_days_per_week: 3,
   unit_preference: 'metric',
+  training_weekdays: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 };

@@ -51,6 +51,20 @@ export async function updateProfile(
   return result(data, error);
 }
 
+/**
+ * FR-2.5: save the weekdays the user trains on (ISO 1=Mon..7=Sun, one per
+ * training day). The database rejects a list whose length differs from
+ * training_days_per_week.
+ */
+export async function updateTrainingWeekdays(
+  client: GymSupabaseClient,
+  userId: string,
+  weekdays: number[],
+): Promise<ApiResult<ProfileRow>> {
+  const sorted = [...new Set(weekdays)].sort((a, b) => a - b);
+  return updateProfile(client, userId, { training_weekdays: sorted });
+}
+
 /** FR-1.2: the fixed reference list of equipment items, for building the checklist UI. */
 export async function listEquipmentItems(
   client: GymSupabaseClient,
