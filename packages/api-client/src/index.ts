@@ -12,3 +12,4 @@ export * from './barcodeLookup';
 export * from './foodLog';
 export * from './weightEntries';
 export * from './personalRecords';
+export * from './sessionInsights';

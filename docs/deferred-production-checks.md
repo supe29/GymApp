@@ -17,6 +17,16 @@ readiness review — see plan.md Phase 12/13.
       `expo-web-browser` / `expo-linking` redirect round-trip actually
       completes on a real iOS and Android device (deep link handling can't be
       verified by a component test).
+- [ ] **Execute the session-insights Edge Function itself**
+      (`supabase/functions/session-insights/index.ts`, FR-8.4/AI-5) — written
+      but never run as a Deno function. Set the secret
+      (`supabase secrets set ANTHROPIC_API_KEY=...`), deploy
+      (`supabase functions deploy session-insights`), then complete a real
+      session and confirm: the AI text appears with its AI label; a request
+      without a valid session gets 401; with the secret unset the app shows
+      the rule-based text (`{ fallback: true }`). Its pure guards (number
+      check, reply parsing, input validation) are unit-tested in
+      `supabase/functions/_shared/sessionInsights.test.ts`.
 - [ ] **Execute the delete-account Edge Function itself**
       (`supabase/functions/delete-account/index.ts`) — written to match
       Supabase's documented pattern but never run as a Deno function; verify

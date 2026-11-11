@@ -518,7 +518,7 @@ Run a full end-to-end regression pass across web, iOS, and Android covering ever
 Full end-to-end suite across all seven user flows on all three platforms. Manual accessibility/screen-reader pass. Load/performance spot checks on reference devices.
 
 ### Acceptance criteria
-All acceptance criteria (AC-1 through AC-14) pass on web, iOS, and Android. No open question remains unresolved without an explicit, recorded deferral decision. The app is ready to submit/deploy. Every item in `/docs/deferred-production-checks.md` (real OAuth/device/Supabase integration checks accumulated from Phases 2 onward, deliberately deferred past each development phase but mandatory before production) is checked off, not silently left unverified.
+All acceptance criteria (AC-1 through AC-15) pass on web, iOS, and Android. No open question remains unresolved without an explicit, recorded deferral decision. The app is ready to submit/deploy. Every item in `/docs/deferred-production-checks.md` (real OAuth/device/Supabase integration checks accumulated from Phases 2 onward, deliberately deferred past each development phase but mandatory before production) is checked off, not silently left unverified.
 
 ### Dependencies
 Phase 11 and Phase 12 complete.
@@ -585,6 +585,7 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 | FR-6.1–6.3 | Phase 8 | |
 | FR-7.1–7.4 | Phase 9 | FR-7.1/7.4 now explicitly split into native/browser paths (this revision). |
 | FR-8.1–8.3 | Phase 10 | |
+| FR-8.4 (post-session summary) | Phase 10 (summary facts in `packages/core/src/progress/sessionSummary.ts`), Phase 11 (summary screen) | Added after Phase 11; shown after every session. |
 | FR-9.1 | Phase 2 | |
 | FR-9.2 (password reset) | Phase 2 | Test coverage added this revision. |
 | FR-9.3 | Phase 2 (stub), Phase 12 (complete) | |
@@ -648,6 +649,13 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 | SR-5 | Phase 2 (implementation), Phase 12 (re-verify) | |
 | SR-6 | Phase 5 | |
 
+### AI Behavior Requirements (AI)
+
+| ID | Owning phase(s) | Notes |
+|---|---|---|
+| AI-1–AI-4 | All phases (constraint) | No AI in any plan-number path. |
+| AI-5 (AI summary text) | Phase 11 (`supabase/functions/session-insights`, `SessionSummary.tsx`), Phase 12 (re-audit) | Number check and rule-based fallback; the deployed function is a deferred production check. |
+
 ### Acceptance Criteria (AC)
 
 | ID | Owning phase(s) |
@@ -659,6 +667,7 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 | AC-9, AC-10 | Phase 9 |
 | AC-11, AC-12 | Phase 10 |
 | AC-13, AC-14 | Phase 2 (implementation), Phase 12 (integration-level verification) |
+| AC-15 | Phase 11 |
 
 ## Previously Unowned Requirements (Now Addressed in This Revision)
 
