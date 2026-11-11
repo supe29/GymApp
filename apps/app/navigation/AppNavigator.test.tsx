@@ -31,6 +31,8 @@ jest.mock('api-client', () => ({
   getWorkoutSessionHistory: jest.fn(),
   getFoodLogEntriesForDate: jest.fn(),
   getPersonalRecordsForUser: jest.fn(),
+  getPendingProgressionSuggestions: jest.fn(),
+  updateProgressionSuggestionStatus: jest.fn(),
   getWeightEntries: jest.fn(),
   getUserEquipmentIds: jest.fn(),
   updateProfile: jest.fn(),
@@ -73,6 +75,8 @@ describe('AppNavigator (FR-9.4)', () => {
     mockedApiClient.getCurrentNutritionTargets.mockResolvedValue({ data: null, error: null });
     mockedApiClient.getFoodLogEntriesForDate.mockResolvedValue({ data: [], error: null });
     mockedApiClient.getPersonalRecordsForUser.mockResolvedValue({ data: [], error: null });
+    mockedApiClient.getPendingProgressionSuggestions.mockResolvedValue({ data: [], error: null });
+    mockedApiClient.getWeightEntries.mockResolvedValue({ data: [], error: null });
 
     const { getByTestId } = render(<AppNavigator />);
 

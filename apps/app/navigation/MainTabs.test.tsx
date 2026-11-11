@@ -19,6 +19,8 @@ jest.mock('api-client', () => ({
   getCurrentNutritionTargets: jest.fn(),
   getFoodLogEntriesForDate: jest.fn(),
   getPersonalRecordsForUser: jest.fn(),
+  getPendingProgressionSuggestions: jest.fn(),
+  updateProgressionSuggestionStatus: jest.fn(),
   getProfile: jest.fn(),
   buildRegenerationPreview: jest.fn(),
   createWorkoutPlan: jest.fn(),
@@ -49,6 +51,7 @@ beforeEach(() => {
   mockedApiClient.getCurrentNutritionTargets.mockResolvedValue({ data: null, error: null });
   mockedApiClient.getFoodLogEntriesForDate.mockResolvedValue({ data: [], error: null });
   mockedApiClient.getPersonalRecordsForUser.mockResolvedValue({ data: [], error: null });
+  mockedApiClient.getPendingProgressionSuggestions.mockResolvedValue({ data: [], error: null });
   mockedApiClient.getProfile.mockResolvedValue({
     data: {
       user_id: 'user-1',
@@ -126,5 +129,19 @@ describe('MainTabs (UX-3/FR-8.3)', () => {
 
     fireEvent.press(getByTestId('dashboard-quick-log-food'));
     await waitFor(() => expect(getByTestId('diary-screen')).toBeTruthy());
+  });
+
+  test('UX-3: the dashboard reloads when you come back to it, so totals are never stale', async () => {
+    const { getByTestId, getByText } = renderMainTabs();
+    await waitFor(() => expect(getByTestId('dashboard-screen')).toBeTruthy());
+    // Only the dashboard loads the plan here (the Plan tab is never opened), so each call is a dashboard load.
+    const dashboardLoads = mockedApiClient.getCurrentPlan.mock.calls.length;
+
+    fireEvent.press(getByTestId('dashboard-quick-log-food'));
+    await waitFor(() => expect(getByTestId('diary-screen')).toBeTruthy());
+    expect(mockedApiClient.getCurrentPlan.mock.calls.length).toBe(dashboardLoads);
+
+    fireEvent.press(getByText('Dashboard'));
+    await waitFor(() => expect(mockedApiClient.getCurrentPlan.mock.calls.length).toBe(dashboardLoads + 1));
   });
 });

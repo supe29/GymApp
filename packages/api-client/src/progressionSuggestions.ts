@@ -152,3 +152,63 @@ export async function getLatestEffectiveSuggestionsForExercises(
   }
   return { data: effectiveByExerciseId, error: null };
 }
+
+export interface PendingProgressionSuggestion extends PersistedProgressionSuggestion {
+  exerciseName: string;
+  createdAt: string;
+}
+
+/**
+ * FR-6.2/UX-6: suggestions the user has not yet accepted, declined or
+ * overridden (e.g. they tapped "Done" on the post-session review), for the
+ * dashboard. Only the newest suggestion per exercise counts: an older
+ * pending row that a later suggestion has replaced is stale and is left
+ * out. Newest first.
+ */
+export async function getPendingProgressionSuggestions(
+  client: GymSupabaseClient,
+  userId: string,
+  limit = 100,
+): Promise<ApiResult<PendingProgressionSuggestion[]>> {
+  const { data, error } = await client
+    .from('progression_suggestions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    return result<PendingProgressionSuggestion[]>(null, error);
+  }
+
+  const seenExerciseIds = new Set<string>();
+  const pendingRows: ProgressionSuggestionRow[] = [];
+  for (const row of data ?? []) {
+    if (seenExerciseIds.has(row.exercise_id)) continue;
+    seenExerciseIds.add(row.exercise_id);
+    if (row.status === 'pending') pendingRows.push(row);
+  }
+  if (pendingRows.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const { data: nameRows, error: nameError } = await client
+    .from('exercises')
+    .select('id, name')
+    .in(
+      'id',
+      pendingRows.map((row) => row.exercise_id),
+    );
+  if (nameError) {
+    return result<PendingProgressionSuggestion[]>(null, nameError);
+  }
+  const nameById = new Map((nameRows ?? []).map((row) => [row.id, row.name]));
+
+  return {
+    data: pendingRows.map((row) => ({
+      ...toPersisted(row),
+      exerciseName: nameById.get(row.exercise_id) ?? 'Exercise',
+      createdAt: row.created_at,
+    })),
+    error: null,
+  };
+}

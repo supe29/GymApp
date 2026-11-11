@@ -1,6 +1,7 @@
 import {
   createProgressionSuggestion,
   getLatestEffectiveSuggestionsForExercises,
+  getPendingProgressionSuggestions,
   updateProgressionSuggestionStatus,
   type ProgressionSuggestionRow,
 } from './progressionSuggestions';
@@ -135,5 +136,47 @@ describe('getLatestEffectiveSuggestionsForExercises (FR-6.1)', () => {
     const result = await getLatestEffectiveSuggestionsForExercises(client, 'user-1', ['ex-1']);
 
     expect(result.data?.get('ex-1')).toEqual({ weightKg: 60, repsMin: 5 });
+  });
+});
+
+describe('getPendingProgressionSuggestions (FR-6.2/UX-6)', () => {
+  test('keeps only the newest suggestion per exercise, and only when it is still pending', async () => {
+    const { client, from } = createMockClient();
+    const suggestionsBuilder = createQueryBuilderMock({
+      data: [
+        { ...fakeSuggestionRow, id: 'new-ex1', exercise_id: 'ex-1', status: 'pending', created_at: '2026-01-03T00:00:00Z' },
+        { ...fakeSuggestionRow, id: 'new-ex2', exercise_id: 'ex-2', status: 'accepted', created_at: '2026-01-02T00:00:00Z' },
+        { ...fakeSuggestionRow, id: 'old-ex2', exercise_id: 'ex-2', status: 'pending', created_at: '2026-01-01T00:00:00Z' },
+      ],
+      error: null,
+    });
+    const namesBuilder = createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }], error: null });
+    from.mockReturnValueOnce(suggestionsBuilder).mockReturnValueOnce(namesBuilder);
+
+    const result = await getPendingProgressionSuggestions(client, 'user-1');
+
+    expect(suggestionsBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(namesBuilder.in).toHaveBeenCalledWith('id', ['ex-1']);
+    expect(result.data?.map((s) => s.id)).toEqual(['new-ex1']);
+    expect(result.data?.[0].exerciseName).toBe('Squat');
+  });
+
+  test('returns an empty list without a name lookup when nothing is pending', async () => {
+    const { client, from } = createMockClient();
+    from.mockReturnValueOnce(
+      createQueryBuilderMock({ data: [{ ...fakeSuggestionRow, status: 'declined' }], error: null }),
+    );
+
+    const result = await getPendingProgressionSuggestions(client, 'user-1');
+
+    expect(result).toEqual({ data: [], error: null });
+    expect(from).toHaveBeenCalledTimes(1);
+  });
+
+  test('passes through a query error', async () => {
+    const { client, from } = createMockClient();
+    from.mockReturnValueOnce(createQueryBuilderMock({ data: null, error: { message: 'boom' } }));
+
+    expect(await getPendingProgressionSuggestions(client, 'user-1')).toEqual({ data: null, error: 'boom' });
   });
 });
