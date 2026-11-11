@@ -3,7 +3,11 @@
 
 import type { FitnessLevel, Goal } from '../../validation/profileValidation';
 
-export type SplitType = 'full_body' | 'upper_lower' | 'push_pull_legs';
+/** The three rule-table splits. */
+export type NamedSplitType = 'full_body' | 'upper_lower' | 'push_pull_legs';
+
+/** A plan's split: a named one, or 'custom' when its days mix focuses (FR-2.7). */
+export type SplitType = NamedSplitType | 'custom';
 
 export interface SplitRule {
   /** NFR-7 traceability key, surfaced in a generated plan's provenance. */
@@ -12,7 +16,7 @@ export interface SplitRule {
   fitnessLevel: FitnessLevel | 'any';
   minDays: number;
   maxDays: number;
-  splitType: SplitType;
+  splitType: NamedSplitType;
   /** Plain-English justification, directly displayable (NFR-7). */
   rationale: string;
 }

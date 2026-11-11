@@ -344,3 +344,71 @@ describe('generatePlan session fill and SR-3', () => {
     expect(ids).not.toContain('quads-advanced');
   });
 });
+
+describe('FR-2.7: generatePlan with day plans', () => {
+  const ABS_LIBRARY = [
+    ...FIXTURE_LIBRARY,
+    exercise({ id: 'abdominals-beginner-a', primaryMuscleKeys: ['abdominals'], difficulty: 'beginner' }),
+    exercise({ id: 'abdominals-beginner-b', primaryMuscleKeys: ['abdominals'], difficulty: 'beginner' }),
+  ];
+
+  test('each session follows its day plan: muscles, name, and A/B suffix for repeats', () => {
+    const plan = generatePlan(
+      baseInput({
+        trainingDaysPerWeek: 4,
+        dayPlans: [
+          { focus: ['push'], core: true },
+          { focus: ['pull', 'legs'], core: false },
+          { focus: ['push'], core: true },
+          { focus: ['lower'], core: false },
+        ],
+        dayPlanRule: 'custom',
+      }),
+    );
+    expect(plan.sessions.map((s) => s.name)).toEqual(['Push + Core A', 'Pull + Legs', 'Push + Core B', 'Lower']);
+    expect(plan.splitType).toBe('custom');
+
+    const pushMuscles = new Set(['chest', 'shoulders', 'triceps', 'abdominals']);
+    for (const ex of plan.sessions[0].exercises) expect(pushMuscles.has(ex.provenance.muscleGroupTargeted)).toBe(true);
+
+    const pullLegs = plan.sessions[1].exercises.map((e) => e.provenance.muscleGroupTargeted);
+    expect(pullLegs).toEqual(expect.arrayContaining(['lats', 'quadriceps']));
+    expect(plan.sessions[1].exercises.every((e) => e.provenance.dayPlanRule === 'custom')).toBe(true);
+  });
+
+  test('a core day ends with dedicated ab exercises (2 for intermediate) on top of the usual count', () => {
+    const plan = generatePlan(
+      baseInput({ exerciseLibrary: ABS_LIBRARY, trainingDaysPerWeek: 2, dayPlans: [{ focus: ['upper'], core: true }, { focus: ['upper'], core: false }] }),
+    );
+    const [withCore, without] = plan.sessions;
+    const tail = withCore.exercises.slice(-2);
+    expect(tail.every((e) => e.provenance.muscleGroupTargeted === 'abdominals' && e.provenance.coreFinisher)).toBe(true);
+    expect(withCore.exercises.length).toBe(without.exercises.length + 2);
+    expect(withCore.exercises.slice(0, -2).some((e) => e.provenance.muscleGroupTargeted === 'abdominals')).toBe(false);
+    expect(tail[0].intensityNote).toContain('core finisher');
+  });
+
+  test('SR-3 still applies to core finishers: a beginner gets a beginner ab exercise when one exists', () => {
+    const plan = generatePlan(
+      baseInput({ fitnessLevel: 'beginner', exerciseLibrary: ABS_LIBRARY, trainingDaysPerWeek: 1, dayPlans: [{ focus: ['push'], core: true }] }),
+    );
+    const core = plan.sessions[0].exercises.filter((e) => e.provenance.coreFinisher);
+    expect(core).toHaveLength(1);
+    expect(core[0].exerciseId).toMatch(/^abdominals-beginner/);
+  });
+
+  test('named-family day plans keep the named split type', () => {
+    const ul = generatePlan(baseInput({ trainingDaysPerWeek: 2, dayPlans: [{ focus: ['upper'], core: false }, { focus: ['lower'], core: false }] }));
+    expect(ul.splitType).toBe('upper_lower');
+  });
+
+  test('without day plans the FR-2.1 templates are used, unchanged', () => {
+    const plain = generatePlan(baseInput());
+    expect(plain.sessions.every((s) => s.exercises.every((e) => e.provenance.dayPlanRule === undefined))).toBe(true);
+  });
+
+  test('is deterministic with day plans', () => {
+    const input = baseInput({ trainingDaysPerWeek: 2, dayPlans: [{ focus: ['push'], core: true }, { focus: ['pull', 'legs'], core: false }] });
+    expect(generatePlan(input)).toEqual(generatePlan(input));
+  });
+});
