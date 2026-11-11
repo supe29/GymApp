@@ -8,6 +8,7 @@ jest.mock('api-client', () => ({
   generateInitialPlan: jest.fn(),
   buildRegenerationPreview: jest.fn(),
   createWorkoutPlan: jest.fn(),
+  getMuscleKeysForExercises: jest.fn(),
 }));
 
 const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
@@ -173,5 +174,44 @@ describe('WorkoutPlanScreen (FR-2.1/FR-2.2/FR-2.3/FR-2.4/AC-1/AC-2/NFR-7)', () =
     expect(queryByTestId('plan-exercise-why-ex-1')).toBeNull();
     fireEvent.press(getByTestId('plan-exercise-why-toggle-ex-1'));
     expect(getByTestId('plan-exercise-why-ex-1').props.children).toContain('Generated from');
+  });
+
+  test('shows an exercise movement demo with its muscles lit, one at a time', async () => {
+    const twoExercisePlan = {
+      ...persistedPlan,
+      sessions: [
+        {
+          ...persistedPlan.sessions[0],
+          exercises: [
+            { ...persistedPlan.sessions[0].exercises[0], exerciseName: 'Barbell Squat' },
+            { ...persistedPlan.sessions[0].exercises[0], id: 'pse-2', exerciseId: 'ex-2', exerciseName: 'Dumbbell Bench Press' },
+          ],
+        },
+      ],
+    };
+    mockedApiClient.getCurrentPlan.mockResolvedValue({ data: twoExercisePlan, error: null });
+    mockedApiClient.getMuscleKeysForExercises.mockImplementation(async (_client, ids) => ({
+      data: new Map([[ids[0], { primary: [`${ids[0]}-primary`], secondary: [] }]]),
+      error: null,
+    }));
+
+    const { getByTestId, queryByTestId, getAllByTestId } = render(<WorkoutPlanScreen client={fakeClient} userId="user-1" />);
+    await waitFor(() => expect(getByTestId('plan-exercise-demo-toggle-ex-1')).toBeTruthy());
+    expect(queryByTestId('mock-demo-figure')).toBeNull();
+
+    fireEvent.press(getByTestId('plan-exercise-demo-toggle-ex-1'));
+    expect(getByTestId('plan-exercise-demo-ex-1')).toBeTruthy();
+    expect(getByTestId('mock-demo-figure').props.clip).toBe('squat');
+    await waitFor(() =>
+      expect(getByTestId('mock-demo-figure').props.muscles).toEqual({ primary: ['ex-1-primary'], secondary: [] }),
+    );
+
+    fireEvent.press(getByTestId('plan-exercise-demo-toggle-ex-2'));
+    expect(queryByTestId('plan-exercise-demo-ex-1')).toBeNull();
+    expect(getAllByTestId('mock-demo-figure')).toHaveLength(1);
+    expect(getByTestId('mock-demo-figure').props.clip).toBe('dumbbell_press');
+
+    fireEvent.press(getByTestId('plan-exercise-demo-toggle-ex-2'));
+    expect(queryByTestId('mock-demo-figure')).toBeNull();
   });
 });

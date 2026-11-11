@@ -19,18 +19,25 @@ import {
   filterByEquipmentSubset,
   filterByMuscleGroup,
   type ExerciseWithTags,
+  type FitnessLevel,
+  type Goal,
+  type SessionAiFacts,
+  type SessionSummary as SessionSummaryData,
   type ProgressionAction,
   type UnitPreference,
 } from 'core';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import ExerciseDemoPanel, { DemoModelCredit } from '../../components/ExerciseDemoPanel';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import ProgressionSuggestionCard from '../plan/ProgressionSuggestionCard';
 import NewPersonalRecordCard from '../progress/NewPersonalRecordCard';
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
 import RestTimer from './RestTimer';
 import SetLogger, { type LoggedSetDisplay, type PreviousSet } from './SetLogger';
+import { buildSummaryForSession } from './buildSummaryForSession';
+import SessionSummary from './SessionSummary';
 
 export interface SessionScreenProps {
   client?: GymSupabaseClient;
@@ -114,7 +121,22 @@ export default function SessionScreen({
   const [suggestionCards, setSuggestionCards] = useState<SuggestionCardState[]>([]);
   const [newPrCards, setNewPrCards] = useState<NewPrCardState[]>([]);
   const [unitPreference, setUnitPreference] = useState<UnitPreference>('metric');
+  const [profileGoal, setProfileGoal] = useState<{ goal: Goal; fitnessLevel: FitnessLevel } | null>(null);
+  const [sessionMeta, setSessionMeta] = useState<{ name: string; startedAt: string | null }>({ name: 'Workout', startedAt: null });
+  // FR-8.4: set once the session is completed; the summary then replaces the logging view.
+  const [completedSummary, setCompletedSummary] = useState<{ summary: SessionSummaryData; aiFacts: SessionAiFacts } | null>(null);
+  // Every exercise shows its movement demo by default; these are the ones the user has hidden.
+  // Keyed by slot id, so a substitution swaps the demo to the new exercise.
+  const [hiddenDemoSlotIds, setHiddenDemoSlotIds] = useState<ReadonlySet<string>>(new Set());
   const queueRef = useRef<OfflineQueueHandle | null>(null);
+  // Stable per-exercise objects, so an open demo figure isn't handed a new muscles prop on every render.
+  const musclesByExerciseId = useMemo(
+    () =>
+      new Map(
+        exerciseLibrary.map((e) => [e.id, { primary: e.primaryMuscleKeys, secondary: e.secondaryMuscleKeys }] as const),
+      ),
+    [exerciseLibrary],
+  );
 
   function updateLoggedSet(id: string, patch: Partial<LoggedSetDisplay>) {
     setSlots((prev) =>
@@ -147,6 +169,7 @@ export default function SessionScreen({
         ]);
       if (profileResult.data) {
         setUnitPreference(profileResult.data.unit_preference);
+        setProfileGoal({ goal: profileResult.data.goal, fitnessLevel: profileResult.data.fitness_level });
       }
 
       if (sessionResult.error || !sessionResult.data) {
@@ -155,6 +178,7 @@ export default function SessionScreen({
         return;
       }
       setWorkoutSessionId(sessionResult.data.id);
+      setSessionMeta({ name: plannedResult.data?.name ?? 'Workout', startedAt: sessionResult.data.startedAt || null });
 
       if (plannedResult.data) {
         // Most recent previously logged set per exercise, so the logger can
@@ -389,13 +413,41 @@ export default function SessionScreen({
       }
     }
 
+    // FR-8.4: the summary is shown after every session, whether or not
+    // there are PRs or suggestions to review.
+    const built = await buildSummaryForSession({
+      client,
+      userId,
+      sessionName: sessionMeta.name,
+      startedAt: sessionMeta.startedAt,
+      goal: profileGoal?.goal ?? null,
+      fitnessLevel: profileGoal?.fitnessLevel ?? null,
+      unitPreference,
+      exerciseLibrary,
+      exercises: slots.map((slot) => ({
+        exerciseId: slot.exerciseId,
+        name: slot.exerciseName,
+        targetSets: slot.targetSets,
+        targetRepsMin: slot.targetRepsMin,
+        targetRepsMax: slot.targetRepsMax,
+        skipped: slot.skipped,
+      })),
+      logs: confirmedLogs,
+      priorLogs,
+      newPrs: prCards.map((pr) => ({ exerciseName: pr.exerciseName, repCount: pr.repCount, weightKg: pr.weightKg })),
+      progression: cards.map((card) => ({
+        exerciseName: card.exerciseName,
+        action: card.action,
+        suggestedWeightKg: card.suggestedWeightKg,
+        suggestedReps: card.suggestedReps,
+      })),
+      completedPlannedSessionId: plannedSessionId,
+    });
+
     setCompleting(false);
-    if (cards.length === 0 && prCards.length === 0) {
-      onSessionCompleted?.();
-      return;
-    }
     setSuggestionCards(cards);
     setNewPrCards(prCards);
+    setCompletedSummary(built);
   }
 
   async function handleAcceptSuggestion(suggestionId: string) {
@@ -430,6 +482,7 @@ export default function SessionScreen({
   function handleDoneReviewingSuggestions() {
     setSuggestionCards([]);
     setNewPrCards([]);
+    setCompletedSummary(null);
     onSessionCompleted?.();
   }
 
@@ -441,43 +494,65 @@ export default function SessionScreen({
     );
   }
 
-  if (suggestionCards.length > 0 || newPrCards.length > 0) {
+  if (completedSummary) {
     return (
-      <ScrollView style={styles.container} testID="session-suggestions-review">
-        <Text style={styles.title}>Session complete — what&apos;s next</Text>
-        {newPrCards.map((card) => (
-          <NewPersonalRecordCard
-            key={`${card.exerciseId}-${card.repCount}`}
-            exerciseName={card.exerciseName}
-            repCount={card.repCount}
-            weightKg={card.weightKg}
-            estimatedOneRm={card.estimatedOneRm}
-            unitPreference={unitPreference}
-          />
-        ))}
-        {suggestionCards.map((card) => (
-          <ProgressionSuggestionCard
-            key={card.suggestionId}
-            exerciseId={card.exerciseId}
-            exerciseName={card.exerciseName}
-            action={card.action}
-            suggestedWeightKg={card.suggestedWeightKg}
-            suggestedReps={card.suggestedReps}
-            rationale={card.rationale}
-            status={card.status}
-            onAccept={() => handleAcceptSuggestion(card.suggestionId)}
-            onDecline={() => handleDeclineSuggestion(card.suggestionId)}
-            onOverride={(weightKg, reps) => handleOverrideSuggestion(card.suggestionId, weightKg, reps)}
-          />
-        ))}
-        <Pressable testID="session-suggestions-done" style={styles.button} onPress={handleDoneReviewingSuggestions} accessibilityRole="button">
-          <Text style={styles.buttonText}>Done</Text>
-        </Pressable>
-      </ScrollView>
+      <SessionSummary
+        client={client}
+        summary={completedSummary.summary}
+        aiFacts={completedSummary.aiFacts}
+        unitPreference={unitPreference}
+        onDone={handleDoneReviewingSuggestions}
+        prSection={
+          newPrCards.length > 0
+            ? newPrCards.map((card) => (
+                <NewPersonalRecordCard
+                  key={`${card.exerciseId}-${card.repCount}`}
+                  exerciseName={card.exerciseName}
+                  repCount={card.repCount}
+                  weightKg={card.weightKg}
+                  estimatedOneRm={card.estimatedOneRm}
+                  unitPreference={unitPreference}
+                />
+              ))
+            : undefined
+        }
+        progressionSection={
+          suggestionCards.length > 0
+            ? suggestionCards.map((card) => (
+                <ProgressionSuggestionCard
+                  key={card.suggestionId}
+                  exerciseId={card.exerciseId}
+                  exerciseName={card.exerciseName}
+                  action={card.action}
+                  suggestedWeightKg={card.suggestedWeightKg}
+                  suggestedReps={card.suggestedReps}
+                  rationale={card.rationale}
+                  status={card.status}
+                  onAccept={() => handleAcceptSuggestion(card.suggestionId)}
+                  onDecline={() => handleDeclineSuggestion(card.suggestionId)}
+                  onOverride={(weightKg, reps) => handleOverrideSuggestion(card.suggestionId, weightKg, reps)}
+                />
+              ))
+            : undefined
+        }
+      />
     );
   }
 
   const addableExercises = filterByEquipmentSubset(exerciseLibrary, availableEquipmentKeys);
+
+  function musclesForExercise(exerciseId: string) {
+    return musclesByExerciseId.get(exerciseId) ?? null;
+  }
+
+  function toggleDemo(slotId: string) {
+    setHiddenDemoSlotIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(slotId)) next.delete(slotId);
+      else next.add(slotId);
+      return next;
+    });
+  }
 
   return (
     <ScrollView style={styles.container} testID="session-screen">
@@ -501,6 +576,15 @@ export default function SessionScreen({
               onLogSet={(input) => handleLogSet(slot.id, input)}
               onRetrySet={handleRetrySet}
               previousSet={slot.previousSet ?? undefined}
+              headerAccessory={
+                hiddenDemoSlotIds.has(slot.id) ? null : (
+                  <ExerciseDemoPanel
+                    exerciseName={slot.exerciseName}
+                    muscles={musclesForExercise(slot.exerciseId)}
+                    testID={`session-slot-${slot.id}-demo`}
+                  />
+                )
+              }
               target={
                 slot.targetSets > 0
                   ? {
@@ -526,6 +610,17 @@ export default function SessionScreen({
                 accessibilityState={{ expanded: slot.showSubstituteOptions }}
               >
                 <Text style={styles.actionText}>Substitute</Text>
+              </Pressable>
+            ) : null}
+            {!slot.skipped ? (
+              <Pressable
+                testID={`session-slot-${slot.id}-demo-toggle`}
+                onPress={() => toggleDemo(slot.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${hiddenDemoSlotIds.has(slot.id) ? 'Show' : 'Hide'} how to do ${slot.exerciseName}`}
+                accessibilityState={{ expanded: !hiddenDemoSlotIds.has(slot.id) }}
+              >
+                <Text style={styles.actionText}>{hiddenDemoSlotIds.has(slot.id) ? 'Show demo' : 'Hide demo'}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -607,6 +702,7 @@ export default function SessionScreen({
       >
         <Text style={styles.buttonText}>{completing ? 'Completing…' : 'Complete session'}</Text>
       </Pressable>
+      {slots.some((slot) => !slot.skipped && !hiddenDemoSlotIds.has(slot.id)) ? <DemoModelCredit /> : null}
     </ScrollView>
   );
 }

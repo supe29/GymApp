@@ -10,15 +10,27 @@ import {
   startWorkoutSession,
   type GymSupabaseClient,
 } from 'api-client';
-import { deriveNewPersonalRecords, filterByEquipmentSubset, type ExerciseWithTags, type UnitPreference } from 'core';
-import { useEffect, useRef, useState } from 'react';
+import {
+  deriveNewPersonalRecords,
+  filterByEquipmentSubset,
+  type ExerciseWithTags,
+  type FitnessLevel,
+  type Goal,
+  type SessionAiFacts,
+  type SessionSummary as SessionSummaryData,
+  type UnitPreference,
+} from 'core';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import ExerciseDemoPanel, { DemoModelCredit } from '../../components/ExerciseDemoPanel';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import NewPersonalRecordCard from '../progress/NewPersonalRecordCard';
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
 import RestTimer from './RestTimer';
 import SetLogger, { type LoggedSetDisplay } from './SetLogger';
+import { buildSummaryForSession } from './buildSummaryForSession';
+import SessionSummary from './SessionSummary';
 
 export interface FreeformSessionScreenProps {
   client?: GymSupabaseClient;
@@ -60,9 +72,20 @@ export default function FreeformSessionScreen({
   const [exerciseLibrary, setExerciseLibrary] = useState<ExerciseWithTags[]>([]);
   const [availableEquipmentKeys, setAvailableEquipmentKeys] = useState<string[]>([]);
   const [showAddExercise, setShowAddExercise] = useState(false);
+  // Stable per-exercise objects, so each demo figure isn't handed a new muscles prop on every render.
+  const musclesByExerciseId = useMemo(
+    () =>
+      new Map(
+        exerciseLibrary.map((e) => [e.id, { primary: e.primaryMuscleKeys, secondary: e.secondaryMuscleKeys }] as const),
+      ),
+    [exerciseLibrary],
+  );
   const [completing, setCompleting] = useState(false);
   const [newPrCards, setNewPrCards] = useState<NewPrCardState[]>([]);
   const [unitPreference, setUnitPreference] = useState<UnitPreference>('metric');
+  const [profileGoal, setProfileGoal] = useState<{ goal: Goal; fitnessLevel: FitnessLevel } | null>(null);
+  const [startedAt, setStartedAt] = useState<string | null>(null);
+  const [completedSummary, setCompletedSummary] = useState<{ summary: SessionSummaryData; aiFacts: SessionAiFacts } | null>(null);
   const queueRef = useRef<OfflineQueueHandle | null>(null);
 
   function updateLoggedSet(id: string, patch: Partial<LoggedSetDisplay>) {
@@ -94,6 +117,7 @@ export default function FreeformSessionScreen({
       ]);
       if (profileResult.data) {
         setUnitPreference(profileResult.data.unit_preference);
+        setProfileGoal({ goal: profileResult.data.goal, fitnessLevel: profileResult.data.fitness_level });
       }
 
       if (sessionResult.error || !sessionResult.data) {
@@ -102,6 +126,7 @@ export default function FreeformSessionScreen({
         return;
       }
       setWorkoutSessionId(sessionResult.data.id);
+      setStartedAt(sessionResult.data.startedAt || null);
 
       setExerciseLibrary(exercisesResult.data ?? []);
       const equipmentIds = new Set(equipmentIdsResult.data ?? []);
@@ -195,16 +220,40 @@ export default function FreeformSessionScreen({
       }
     }
 
+    // FR-8.4: a summary after every session; freeform has no prescriptions,
+    // so no targets or progression, and the next session comes from the plan.
+    const built = await buildSummaryForSession({
+      client,
+      userId,
+      sessionName: 'Freeform workout',
+      startedAt,
+      goal: profileGoal?.goal ?? null,
+      fitnessLevel: profileGoal?.fitnessLevel ?? null,
+      unitPreference,
+      exerciseLibrary,
+      exercises: slots.map((slot) => ({
+        exerciseId: slot.exerciseId,
+        name: slot.exerciseName,
+        targetSets: 0,
+        targetRepsMin: 0,
+        targetRepsMax: null,
+        skipped: false,
+      })),
+      logs: confirmedLogs,
+      priorLogs,
+      newPrs: prCards.map((pr) => ({ exerciseName: pr.exerciseName, repCount: pr.repCount, weightKg: pr.weightKg })),
+      progression: [],
+      completedPlannedSessionId: null,
+    });
+
     setCompleting(false);
-    if (prCards.length === 0) {
-      onSessionCompleted?.();
-      return;
-    }
     setNewPrCards(prCards);
+    setCompletedSummary(built);
   }
 
   function handleDoneReviewingPrs() {
     setNewPrCards([]);
+    setCompletedSummary(null);
     onSessionCompleted?.();
   }
 
@@ -216,24 +265,31 @@ export default function FreeformSessionScreen({
     );
   }
 
-  if (newPrCards.length > 0) {
+  if (completedSummary) {
     return (
-      <ScrollView style={styles.container} testID="freeform-session-pr-review">
-        <Text style={styles.title}>Session complete — what&apos;s next</Text>
-        {newPrCards.map((card) => (
-          <NewPersonalRecordCard
-            key={`${card.exerciseId}-${card.repCount}`}
-            exerciseName={card.exerciseName}
-            repCount={card.repCount}
-            weightKg={card.weightKg}
-            estimatedOneRm={card.estimatedOneRm}
-            unitPreference={unitPreference}
-          />
-        ))}
-        <Pressable testID="freeform-session-pr-review-done" style={styles.button} onPress={handleDoneReviewingPrs} accessibilityRole="button">
-          <Text style={styles.buttonText}>Done</Text>
-        </Pressable>
-      </ScrollView>
+      <SessionSummary
+        client={client}
+        summary={completedSummary.summary}
+        aiFacts={completedSummary.aiFacts}
+        unitPreference={unitPreference}
+        onDone={handleDoneReviewingPrs}
+        testID="freeform-session-pr-review"
+        doneTestID="freeform-session-pr-review-done"
+        prSection={
+          newPrCards.length > 0
+            ? newPrCards.map((card) => (
+                <NewPersonalRecordCard
+                  key={`${card.exerciseId}-${card.repCount}`}
+                  exerciseName={card.exerciseName}
+                  repCount={card.repCount}
+                  weightKg={card.weightKg}
+                  estimatedOneRm={card.estimatedOneRm}
+                  unitPreference={unitPreference}
+                />
+              ))
+            : undefined
+        }
+      />
     );
   }
 
@@ -264,6 +320,13 @@ export default function FreeformSessionScreen({
           loggedSets={slot.loggedSets}
           onLogSet={(input) => handleLogSet(slot.exerciseId, input)}
           onRetrySet={handleRetrySet}
+          headerAccessory={
+            <ExerciseDemoPanel
+              exerciseName={slot.exerciseName}
+              muscles={musclesByExerciseId.get(slot.exerciseId) ?? null}
+              testID={`freeform-slot-${slot.exerciseId}-demo`}
+            />
+          }
         />
       ))}
 
@@ -303,6 +366,7 @@ export default function FreeformSessionScreen({
       >
         <Text style={styles.buttonText}>{completing ? 'Completing…' : 'Complete session'}</Text>
       </Pressable>
+      {slots.length > 0 ? <DemoModelCredit /> : null}
     </ScrollView>
   );
 }

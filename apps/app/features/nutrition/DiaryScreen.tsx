@@ -9,7 +9,7 @@ import {
   type PersistedFoodItem,
   type PersistedNutritionTargets,
 } from 'api-client';
-import { computeDailyTotals, groupByMealSlot, type MealSlot } from 'core';
+import { computeDailyTotals, groupByMealSlot, localDateString, type MealSlot } from 'core';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -35,10 +35,6 @@ const MEAL_SLOT_LABEL: Record<MealSlot, string> = {
   snack: 'Snack',
 };
 
-function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /**
  * FR-7.1/FR-7.2/FR-7.3/FR-7.4/UX-7/UX-8/AC-9/AC-10: the food diary — logs
  * entries via search, barcode scan, or manual/custom entry, and shows
@@ -58,7 +54,8 @@ function formatPortion(quantity: number, description: string): string {
 }
 
 export default function DiaryScreen({ client, userId }: DiaryScreenProps) {
-  const [date] = useState(todayDateString());
+  // Local calendar date, not UTC: an evening log must land on today, matching the dashboard.
+  const [date] = useState(() => localDateString());
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [entries, setEntries] = useState<FoodLogEntryForDiary[]>([]);

@@ -43,6 +43,12 @@ export default function PrivacyPolicyScreen({ onClose }: PrivacyPolicyScreenProp
           contains only the search text or barcode value itself &mdash; never your identity,
           profile, or account information.
         </Text>
+        <Text style={styles.body}>
+          After a workout, the app sends that session&apos;s training facts (exercises, sets, reps,
+          weights, the muscles worked, and your goal and fitness level) to Anthropic&apos;s Claude AI
+          service to write the explanation in your session summary. It never includes your name,
+          email, age, or body measurements.
+        </Text>
 
         <Text style={styles.heading}>Data in transit</Text>
         <Text style={styles.body}>

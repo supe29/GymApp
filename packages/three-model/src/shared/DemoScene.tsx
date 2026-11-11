@@ -10,6 +10,7 @@ import { useFrame, useLoader } from '@react-three/fiber';
 import { Suspense, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import type { DemoFigureProps } from '../BodyModelTypes';
 import { cameraStateToFraming, type CameraState } from '../interactionContract';
@@ -42,10 +43,18 @@ type DemoMeshProps = Pick<DemoFigureProps, 'clip' | 'muscles' | 'paused' | 'hold
 function DemoMeshLoader({ uri, clip, muscles, paused, holdPhase, frameBone }: DemoMeshProps) {
   const gltf = useLoader(GLTFLoader, uri);
 
+  // useLoader caches the parsed file per URI, so every figure on screen gets
+  // the same gltf.scene. A three.js object can only sit in one scene, and the
+  // mixer and tints mutate it, so each figure works on its own clone
+  // (SkeletonUtils keeps the skinned meshes bound to the cloned bones).
+  // Without this, a second figure steals the mesh from the first, which goes
+  // blank, and both clips drive one skeleton.
+  const scene = useMemo(() => cloneSkinned(gltf.scene), [gltf]);
+
   const { regionMaterials, mixer, props } = useMemo(() => {
-    const materials = prepareMaterials(gltf.scene);
+    const materials = prepareMaterials(scene);
     const propMeshes: THREE.Object3D[] = [];
-    gltf.scene.traverse((object) => {
+    scene.traverse((object) => {
       // Skinned bounds follow the rest pose, not the animation.
       object.frustumCulled = false;
       if (object.name.startsWith('prop-')) {
@@ -53,9 +62,22 @@ function DemoMeshLoader({ uri, clip, muscles, paused, holdPhase, frameBone }: De
         ((object as THREE.Mesh).material as THREE.MeshStandardMaterial).color.copy(PROP_COLOR);
       }
     });
-    gltf.scene.scale.setScalar(TARGET_HEIGHT / assetBodyHeight(gltf.scene));
-    return { regionMaterials: materials, mixer: new THREE.AnimationMixer(gltf.scene), props: propMeshes };
-  }, [gltf]);
+    scene.scale.setScalar(TARGET_HEIGHT / assetBodyHeight(scene));
+    return { regionMaterials: materials, mixer: new THREE.AnimationMixer(scene), props: propMeshes };
+  }, [scene]);
+
+  useEffect(
+    () => () => {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(scene);
+      // prepareMaterials made fresh materials for this clone; geometry stays shared with the cache.
+      scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (mesh.isMesh) (mesh.material as THREE.Material).dispose();
+      });
+    },
+    [mixer, scene],
+  );
 
   const action = useMemo(() => {
     const animation = gltf.animations.find((candidate) => candidate.name === clip);
@@ -63,8 +85,8 @@ function DemoMeshLoader({ uri, clip, muscles, paused, holdPhase, frameBone }: De
   }, [gltf, mixer, clip]);
 
   useEffect(() => {
-    frameBone.current = gltf.scene.getObjectByName('frame') ?? null;
-  }, [frameBone, gltf]);
+    frameBone.current = scene.getObjectByName('frame') ?? null;
+  }, [frameBone, scene]);
 
   useEffect(() => {
     props.forEach((prop) => {
@@ -100,7 +122,7 @@ function DemoMeshLoader({ uri, clip, muscles, paused, holdPhase, frameBone }: De
     });
   });
 
-  return <primitive object={gltf.scene} />;
+  return <primitive object={scene} />;
 }
 
 function DemoMesh(props: Omit<DemoMeshProps, 'uri'>) {

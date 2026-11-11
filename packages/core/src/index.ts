@@ -24,3 +24,6 @@ export * from './progression/applyProgressionOverlay';
 export * from './nutrition/dailyTotals';
 export * from './progress/prCalculator';
 export * from './planning/nextSessionSelector';
+export * from './dates/localDate';
+export * from './progress/dashboardSummary';
+export * from './progress/sessionSummary';

@@ -51,6 +51,7 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - FR-8.1: A user must be able to log body weight entries over time and view them as a trend chart.
 - FR-8.2: The system must automatically derive and surface personal records (heaviest weight for a given rep count, or estimated one-rep max) per exercise from workout logs, without manual entry.
 - FR-8.3: Progress views must be accessible from a dedicated section of the app, not buried in workout/nutrition logging screens.
+- FR-8.4: After every completed session (plan-attached or freeform), the system must show a session summary: what was done (sets, reps, top weight and volume per exercise, with the change vs the previous session), which muscles it worked, how it fits the user's goal (sets inside the goal's prescribed rep range, targets met), new PRs, and the next planned session with its progression changes. All facts in the summary are computed deterministically; any explanatory prose is subject to AI-5.
 
 ### 1.9 Authentication & Account Management
 - FR-9.1: A user must be able to create an account and sign in via email/password, Google, or Apple.
@@ -177,6 +178,7 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - AI-2: If a future AI coaching/chat layer is added, it may explain, contextualize, or motivate around plan data, but any change it proposes to actual numbers must route through the same deterministic rules and require explicit user confirmation — it cannot silently overwrite a plan.
 - AI-3: Any future AI-generated text must not make medical, diagnostic, or treatment claims, and must not contradict the Safety Requirements below.
 - AI-4: Any future AI-generated content must be identifiable to the user as AI-generated where it is user-facing advice (transparency).
+- AI-5: The post-session summary's explanatory text (FR-8.4) may be AI-written. The AI receives only the deterministic session facts (no name, email, age, or body measurements), must not introduce numbers absent from those facts (replies that do are discarded), and is labelled as AI-generated with a not-medical-advice note. Whenever the AI text is unavailable or rejected, rule-based text derived from the same facts is shown instead, so the summary never depends on the AI.
 
 ---
 
@@ -219,6 +221,9 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - AC-13: Given a signed-in user requests account deletion, when the request is confirmed, then their profile, logs, and weight entries are no longer accessible through the app.
 - AC-14: Given a new user has not yet accepted the disclaimer (SR-5), when they attempt to complete onboarding, then they must acknowledge it before a plan is generated.
 
+**Session Summary**
+- AC-15: Given a user completes any workout session, when the session is saved, then a summary of the work done, muscles worked, goal fit, and next session is shown before they leave; if AI text is shown it is labelled as AI-generated and contains only numbers present in the session facts, and if AI text is unavailable the rule-based summary is shown instead.
+
 ---
 
 ## 10. Assumptions
@@ -238,7 +243,7 @@ Carried forward from `intent.md`:
 - Data-privacy/compliance posture (e.g., GDPR) pending target market.
 - Long-term notification strategy (deferred entirely for V1).
 - Future monetization model.
-- Whether/how an AI coaching/chat layer is introduced later (constrained by AI-1–AI-4 above, but not designed).
+- Whether/how an AI coaching/chat layer is introduced later (constrained by AI-1–AI-4 above, but not designed). **Partly resolved**: an explanation-only AI layer now exists for the post-session summary (FR-8.4, AI-5), via the `session-insights` edge function. A conversational/chat layer remains undecided.
 
 New, surfaced while writing this spec:
 - ~~OQ-1: Exact safe-minimum calorie floor values (SR-1) need confirmation against a credible nutritional-safety reference before implementation.~~ **Resolved in Phase 6**: 1200 kcal/day (`female`), 1500 kcal/day (`male`); `prefer_not_to_say` uses the higher (safer) floor, 1500 kcal/day, not an average. See `/docs/decisions/OQ-1-safe-calorie-floor.md` for full rationale and alternatives considered.

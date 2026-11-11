@@ -87,3 +87,44 @@ export async function listMuscleGroups(
   const { data, error } = await client.from('muscle_groups').select('*').order('display_name');
   return { data: data ?? [], error: error ? error.message : null };
 }
+
+export interface ExerciseMuscleKeys {
+  primary: string[];
+  secondary: string[];
+}
+
+/**
+ * FR-4.2: primary/secondary muscle-group keys for just the given
+ * exercises, for lighting up the demo figure on the plan and session
+ * screens without loading the whole exercise dataset. Exercises with no
+ * muscle rows are absent from the map.
+ */
+export async function getMuscleKeysForExercises(
+  client: GymSupabaseClient,
+  exerciseIds: string[],
+): Promise<ApiResult<Map<string, ExerciseMuscleKeys>>> {
+  const ids = [...new Set(exerciseIds)];
+  if (ids.length === 0) {
+    return { data: new Map(), error: null };
+  }
+
+  const [exerciseMusclesRes, muscleGroupsRes] = await Promise.all([
+    client.from('exercise_muscles').select('exercise_id, muscle_group_id, role').in('exercise_id', ids),
+    client.from('muscle_groups').select('id, key'),
+  ]);
+  const firstError = exerciseMusclesRes.error ?? muscleGroupsRes.error;
+  if (firstError) {
+    return { data: null, error: firstError.message };
+  }
+
+  const muscleGroupKeyById = new Map((muscleGroupsRes.data ?? []).map((m) => [m.id, m.key]));
+  const byExercise = new Map<string, ExerciseMuscleKeys>();
+  for (const row of exerciseMusclesRes.data ?? []) {
+    const key = muscleGroupKeyById.get(row.muscle_group_id);
+    if (!key) continue;
+    const entry = byExercise.get(row.exercise_id) ?? { primary: [], secondary: [] };
+    (row.role === 'primary' ? entry.primary : entry.secondary).push(key);
+    byExercise.set(row.exercise_id, entry);
+  }
+  return { data: byExercise, error: null };
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import NumberStepper from '../../components/NumberStepper';
@@ -24,6 +24,8 @@ export interface SetLoggerProps {
   target?: SetTarget;
   /** The user's most recent set of this exercise from an earlier session. */
   previousSet?: PreviousSet;
+  /** Shown under the exercise name and target, above the inputs (the session screen's movement demo). */
+  headerAccessory?: ReactNode;
 }
 
 export interface PreviousSet {
@@ -71,6 +73,7 @@ export default function SetLogger({
   onRetrySet,
   target,
   previousSet,
+  headerAccessory,
 }: SetLoggerProps) {
   // Pre-filled from the prescription (else last time's weight) so a
   // typical set is just "Log set"; values persist after logging, so
@@ -98,6 +101,7 @@ export default function SetLogger({
           Last time: {previousSet.weightKg} kg × {previousSet.reps ?? '-'}
         </Text>
       ) : null}
+      {headerAccessory}
 
       {loggedSets.map((set) => (
         <View key={set.id} testID={`set-logger-${exerciseId}-set-${set.setIndex}`} style={styles.loggedRow}>

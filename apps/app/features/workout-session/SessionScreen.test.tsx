@@ -16,6 +16,11 @@ jest.mock('api-client', () => ({
   createProgressionSuggestion: jest.fn(),
   updateProgressionSuggestionStatus: jest.fn(),
   createPersonalRecord: jest.fn(),
+  // FR-8.4 summary lookups: AI text falls back to the rule-based text by default.
+  getSessionInsights: jest.fn(() => Promise.resolve({ data: null, error: 'fallback' })),
+  listMuscleGroups: jest.fn(() => Promise.resolve({ data: [{ key: 'quadriceps', display_name: 'Quadriceps' }, { key: 'chest', display_name: 'Chest' }], error: null })),
+  getCurrentPlan: jest.fn(() => Promise.resolve({ data: null, error: null })),
+  getWorkoutSessionHistory: jest.fn(() => Promise.resolve({ data: [], error: null })),
 }));
 
 const mockEnqueue = jest.fn();
@@ -176,11 +181,14 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     fireEvent.press(getByTestId('set-logger-ex-2-log-button'));
 
     // No confirmed logs on the server yet (nothing to evaluate) -> no
-    // suggestions are generated -> onSessionCompleted fires immediately.
+    // suggestions; FR-8.4: the summary still shows, and Done closes it.
     mockedApiClient.getSetLogsForSession.mockResolvedValue({ data: [], error: null });
     fireEvent.press(getByTestId('session-complete-button'));
 
-    await waitFor(() => expect(onSessionCompleted).toHaveBeenCalled());
+    await waitFor(() => expect(getByTestId('session-suggestions-review')).toBeTruthy());
+    expect(onSessionCompleted).not.toHaveBeenCalled();
+    fireEvent.press(getByTestId('session-suggestions-done'));
+    expect(onSessionCompleted).toHaveBeenCalled();
     expect(mockedApiClient.completeWorkoutSession).toHaveBeenCalledWith(fakeClient, 'user-1', 'wsession-1');
   });
 
@@ -365,5 +373,69 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     expect(getByTestId('set-logger-ex-2-weight-value').props.value).toBe('42.5');
     // ex-1 has a prescribed target weight, which wins over history.
     expect(getByTestId('set-logger-ex-1-weight-value').props.value).toBe('50');
+  });
+
+  test('shows every exercise movement demo by default, with its muscles lit; each can be hidden', async () => {
+    const { getByTestId, queryByTestId, getAllByTestId } = await renderLoaded();
+
+    expect(getAllByTestId('mock-demo-figure')).toHaveLength(2);
+    expect(getByTestId('session-slot-pse-1-demo')).toBeTruthy();
+    expect(getByTestId('session-slot-pse-2-demo')).toBeTruthy();
+    expect(getAllByTestId('mock-demo-figure').map((f) => f.props.muscles)).toEqual([
+      { primary: ['quadriceps'], secondary: [] },
+      { primary: ['chest'], secondary: [] },
+    ]);
+
+    fireEvent.press(getByTestId('session-slot-pse-1-demo-toggle'));
+    expect(queryByTestId('session-slot-pse-1-demo')).toBeNull();
+    expect(getByTestId('session-slot-pse-2-demo')).toBeTruthy();
+
+    fireEvent.press(getByTestId('session-slot-pse-1-demo-toggle'));
+    expect(getByTestId('session-slot-pse-1-demo')).toBeTruthy();
+
+    fireEvent.press(getByTestId('session-slot-pse-2-skip'));
+    expect(queryByTestId('session-slot-pse-2-demo')).toBeNull();
+    expect(queryByTestId('session-slot-pse-2-demo-toggle')).toBeNull();
+  });
+
+  test('FR-8.4: completion shows a summary of the work, muscles, goal fit and the next planned session', async () => {
+    mockedApiClient.completeWorkoutSession.mockResolvedValue({
+      data: { id: 'wsession-1', plannedSessionId: 'planned-1', workoutPlanId: 'plan-1', status: 'completed', startedAt: '', completedAt: '' },
+      error: null,
+    });
+    mockedApiClient.getSetLogsForSession.mockResolvedValue({
+      data: [
+        { id: 'l1', workoutSessionId: 'wsession-1', exerciseId: 'ex-1', setIndex: 1, weightKg: 50, reps: 10, rpe: null, loggedAt: '' },
+        { id: 'l2', workoutSessionId: 'wsession-1', exerciseId: 'ex-1', setIndex: 2, weightKg: 50, reps: 9, rpe: null, loggedAt: '' },
+      ],
+      error: null,
+    });
+    mockedApiClient.createProgressionSuggestion.mockResolvedValue({ data: null, error: 'skip' });
+    mockedApiClient.getCurrentPlan.mockResolvedValue({
+      data: {
+        id: 'plan-1',
+        splitType: 'full_body',
+        planVersion: 1,
+        effectiveFrom: '',
+        sessions: [
+          { id: 'planned-1', dayOrder: 1, name: 'Leg Day', exercises: [] },
+          { id: 'planned-2', dayOrder: 2, name: 'Push Day', exercises: [] },
+        ],
+      },
+      error: null,
+    });
+
+    const { getByTestId, queryByTestId } = await renderLoaded();
+    fireEvent.press(getByTestId('session-slot-pse-2-skip'));
+    fireEvent.press(getByTestId('session-complete-button'));
+    fireEvent.press(getByTestId('session-complete-confirm'));
+
+    await waitFor(() => expect(getByTestId('session-suggestions-review')).toBeTruthy());
+    expect(getByTestId('session-summary-exercise-ex-1')).toBeTruthy();
+    expect(queryByTestId('session-summary-exercise-ex-2')).toBeNull();
+    expect(getByTestId('session-summary-muscle-quadriceps')).toBeTruthy();
+    expect(getByTestId('session-summary-next-text').props.children).toContain('Next up: Push Day.');
+    await waitFor(() => expect(mockedApiClient.getSessionInsights).toHaveBeenCalled());
+    expect(mockedApiClient.getSessionInsights.mock.calls[0][1]).toMatchObject({ session: 'Leg Day', totals: { sets: 2, reps: 19 } });
   });
 });

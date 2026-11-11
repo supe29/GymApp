@@ -1,6 +1,8 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
+import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GymSupabaseClient } from 'api-client';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 
 import TabIcon, { type TabIconName } from '../components/TabIcon';
@@ -45,22 +47,58 @@ const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
  * contract), wired here to real pushes/tab switches — DashboardScreen
  * itself has no navigation dependency.
  */
+/**
+ * Reloads the dashboard every time it regains focus (back from a session,
+ * or switching back from the Nutrition/Progress tabs), so it never shows
+ * stale totals. Kept here so DashboardScreen stays navigation-free.
+ */
+function FocusRefreshingDashboard({
+  client,
+  userId,
+  navigation,
+}: {
+  client: GymSupabaseClient;
+  userId: string;
+  navigation: NativeStackNavigationProp<DashboardStackParamList, 'DashboardHome'>;
+}) {
+  const [refreshToken, setRefreshToken] = useState(0);
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      // The first focus is the mount, which already loads.
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      setRefreshToken((token) => token + 1);
+    }, []),
+  );
+
+  const goToTab = (tab: string) => navigation.getParent()?.navigate(tab as never);
+
+  return (
+    <DashboardScreen
+      client={client}
+      userId={userId}
+      refreshToken={refreshToken}
+      onStartSession={(plannedSessionId) => navigation.navigate('Session', { plannedSessionId })}
+      onStartFreeform={() => navigation.navigate('FreeformSession')}
+      onLogFood={() => goToTab('Nutrition')}
+      onLogWeight={() => goToTab('Progress')}
+      onViewWeight={() => goToTab('Progress')}
+      onViewHistory={() => navigation.navigate('History')}
+      onBrowseMuscles={() => navigation.navigate('MuscleExplorer')}
+      onCreatePlan={() => goToTab('Plan')}
+      onSetTargets={() => goToTab('Nutrition')}
+    />
+  );
+}
+
 function DashboardStackNavigator({ client, userId }: { client: GymSupabaseClient; userId: string }) {
   return (
     <DashboardStack.Navigator screenOptions={{ headerShown: false }}>
       <DashboardStack.Screen name="DashboardHome">
-        {({ navigation }) => (
-          <DashboardScreen
-            client={client}
-            userId={userId}
-            onStartSession={(plannedSessionId) => navigation.navigate('Session', { plannedSessionId })}
-            onStartFreeform={() => navigation.navigate('FreeformSession')}
-            onLogFood={() => navigation.getParent()?.navigate('Nutrition' as never)}
-            onLogWeight={() => navigation.getParent()?.navigate('Progress' as never)}
-            onViewHistory={() => navigation.navigate('History')}
-            onBrowseMuscles={() => navigation.navigate('MuscleExplorer')}
-          />
-        )}
+        {({ navigation }) => <FocusRefreshingDashboard client={client} userId={userId} navigation={navigation} />}
       </DashboardStack.Screen>
       <DashboardStack.Screen name="Session" options={{ headerShown: true, title: 'Session' }}>
         {({ navigation, route }) => (

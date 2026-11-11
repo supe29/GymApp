@@ -13,6 +13,11 @@ jest.mock('api-client', () => ({
   getSetLogsForSession: jest.fn(),
   getSetLogsForExercises: jest.fn(),
   createPersonalRecord: jest.fn(),
+  // FR-8.4 summary lookups: AI text falls back to the rule-based text by default.
+  getSessionInsights: jest.fn(() => Promise.resolve({ data: null, error: 'fallback' })),
+  listMuscleGroups: jest.fn(() => Promise.resolve({ data: [{ key: 'quadriceps', display_name: 'Quadriceps' }, { key: 'chest', display_name: 'Chest' }], error: null })),
+  getCurrentPlan: jest.fn(() => Promise.resolve({ data: null, error: null })),
+  getWorkoutSessionHistory: jest.fn(() => Promise.resolve({ data: [], error: null })),
 }));
 
 const mockEnqueue = jest.fn();
@@ -106,7 +111,9 @@ describe('FreeformSessionScreen (FR-5.2/AC-8)', () => {
 
     fireEvent.press(getByTestId('freeform-complete-button'));
 
-    await waitFor(() => expect(onSessionCompleted).toHaveBeenCalled());
+    await waitFor(() => expect(getByTestId('freeform-session-pr-review')).toBeTruthy());
+    fireEvent.press(getByTestId('freeform-session-pr-review-done'));
+    expect(onSessionCompleted).toHaveBeenCalled();
     expect(mockedApiClient.completeWorkoutSession).toHaveBeenCalledWith(fakeClient, 'user-1', 'wsession-1');
   });
 
