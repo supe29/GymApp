@@ -518,7 +518,7 @@ Run a full end-to-end regression pass across web, iOS, and Android covering ever
 Full end-to-end suite across all seven user flows on all three platforms. Manual accessibility/screen-reader pass. Load/performance spot checks on reference devices.
 
 ### Acceptance criteria
-All acceptance criteria (AC-1 through AC-17) pass on web, iOS, and Android. No open question remains unresolved without an explicit, recorded deferral decision. The app is ready to submit/deploy. Every item in `/docs/deferred-production-checks.md` (real OAuth/device/Supabase integration checks accumulated from Phases 2 onward, deliberately deferred past each development phase but mandatory before production) is checked off, not silently left unverified.
+All acceptance criteria (AC-1 through AC-19) pass on web, iOS, and Android. No open question remains unresolved without an explicit, recorded deferral decision. The app is ready to submit/deploy. Every item in `/docs/deferred-production-checks.md` (real OAuth/device/Supabase integration checks accumulated from Phases 2 onward, deliberately deferred past each development phase but mandatory before production) is checked off, not silently left unverified.
 
 ### Dependencies
 Phase 11 and Phase 12 complete.
@@ -579,6 +579,7 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 | FR-1.1–1.4 | Phase 2 (generation hook completed in Phase 5/6) | |
 | FR-2.1–2.4 | Phase 5 | |
 | FR-2.5, FR-2.6 (weekly schedule, missed days) | Phase 5 (schedule logic in `packages/core/src/planning/weekSchedule.ts`), Phase 11 (Plan screen and dashboard) | Added after Phase 13; resolves OQ-5. |
+| FR-2.7 (day focus, split override, core finisher) | Phase 5 (`packages/core/src/planning/dayPlanner.ts`, `planGenerator.ts` day plans), Phase 11 (Plan screen `DayFocusEditor`) | Added after Phase 13; changes apply through FR-2.4 regeneration. |
 | FR-3.1, 3.2 | Phase 6 | |
 | FR-3.3 (no meals/recipes generated) | Phase 6 | Negative requirement — satisfied by not building a meal/recipe generator; no dedicated test beyond absence of that feature surface. |
 | FR-4.1–4.4 | Phase 4 | FR-4.4 parity now has measurable acceptance criteria (this revision). |
@@ -671,6 +672,7 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 | AC-13, AC-14 | Phase 2 (implementation), Phase 12 (integration-level verification) |
 | AC-15 | Phase 11 |
 | AC-16, AC-17 | Phase 11 |
+| AC-18, AC-19 | Phase 5 (day planner, generator), Phase 11 (Plan screen editor) |
 
 ## Previously Unowned Requirements (Now Addressed in This Revision)
 
