@@ -8,9 +8,11 @@ import {
   type RegenerationPreview,
 } from 'api-client';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import ExerciseDemoPanel, { DemoModelCredit } from '../../components/ExerciseDemoPanel';
 import { getSupabaseClient } from '../../lib/supabaseClient';
+import { useExerciseMuscles } from '../exercise-demo/useExerciseMuscles';
 import RegeneratePlanPrompt from './RegeneratePlanPrompt';
 
 export interface WorkoutPlanScreenProps {
@@ -23,7 +25,8 @@ export interface WorkoutPlanScreenProps {
  * FR-2.1/FR-2.2/FR-2.3/FR-2.4/AC-1/AC-2/NFR-7: displays the user's current
  * workout plan, offers on-demand regeneration with a diff preview before
  * committing (FR-2.4/Flow 2.7), and exposes each exercise's generation
- * provenance via a "why" disclosure (NFR-7).
+ * provenance via a "why" disclosure (NFR-7). Each exercise can also show
+ * its movement demo inline, one at a time (each figure is a GL canvas).
  *
  * OQ-5 (missed/skipped session rescheduling) is explicitly out of scope
  * here, same as /docs/decisions/OQ-6-biological-sex.md's citation style
@@ -43,6 +46,9 @@ export default function WorkoutPlanScreen({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedExerciseIds, setExpandedExerciseIds] = useState<Set<string>>(new Set());
+  // Keyed by prescribed-exercise row id: the same exercise can appear in several sessions.
+  const [openDemoRowId, setOpenDemoRowId] = useState<string | null>(null);
+  const exerciseMuscles = useExerciseMuscles(client);
 
   useEffect(() => {
     async function load() {
@@ -114,6 +120,15 @@ export default function WorkoutPlanScreen({
     });
   }
 
+  function toggleDemo(rowId: string, exerciseId: string) {
+    if (openDemoRowId === rowId) {
+      setOpenDemoRowId(null);
+      return;
+    }
+    setOpenDemoRowId(rowId);
+    exerciseMuscles.request(exerciseId);
+  }
+
   if (!loaded) {
     return (
       <View style={styles.container}>
@@ -158,7 +173,7 @@ export default function WorkoutPlanScreen({
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{currentPlan.splitType.replace('_', ' ')}</Text>
       <Text testID="plan-version-badge" style={styles.versionBadge}>
         v{currentPlan.planVersion}
@@ -179,19 +194,37 @@ export default function WorkoutPlanScreen({
                 {ex.exerciseName}: {ex.targetSets}×{ex.targetRepsMin}
                 {ex.targetRepsMax && ex.targetRepsMax !== ex.targetRepsMin ? `-${ex.targetRepsMax}` : ''}
               </Text>
-              <Pressable
-                testID={`plan-exercise-why-toggle-${ex.exerciseId}`}
-                onPress={() => toggleWhy(ex.exerciseId)}
-                accessibilityRole="button"
-                accessibilityLabel={`Why was ${ex.exerciseName} prescribed?`}
-                accessibilityState={{ expanded: expandedExerciseIds.has(ex.exerciseId) }}
-              >
-                <Text style={styles.whyLink}>Why?</Text>
-              </Pressable>
+              <View style={styles.rowLinks}>
+                <Pressable
+                  testID={`plan-exercise-why-toggle-${ex.exerciseId}`}
+                  onPress={() => toggleWhy(ex.exerciseId)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Why was ${ex.exerciseName} prescribed?`}
+                  accessibilityState={{ expanded: expandedExerciseIds.has(ex.exerciseId) }}
+                >
+                  <Text style={styles.whyLink}>Why?</Text>
+                </Pressable>
+                <Pressable
+                  testID={`plan-exercise-demo-toggle-${ex.exerciseId}`}
+                  onPress={() => toggleDemo(ex.id, ex.exerciseId)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${openDemoRowId === ex.id ? 'Hide' : 'Show'} how to do ${ex.exerciseName}`}
+                  accessibilityState={{ expanded: openDemoRowId === ex.id }}
+                >
+                  <Text style={styles.whyLink}>{openDemoRowId === ex.id ? 'Hide demo' : 'Show demo'}</Text>
+                </Pressable>
+              </View>
               {expandedExerciseIds.has(ex.exerciseId) ? (
                 <Text testID={`plan-exercise-why-${ex.exerciseId}`} style={styles.whyText}>
                   {ex.intensityNote}
                 </Text>
+              ) : null}
+              {openDemoRowId === ex.id ? (
+                <ExerciseDemoPanel
+                  exerciseName={ex.exerciseName}
+                  muscles={exerciseMuscles.musclesFor(ex.exerciseId)}
+                  testID={`plan-exercise-demo-${ex.exerciseId}`}
+                />
               ) : null}
             </View>
           ))}
@@ -207,12 +240,15 @@ export default function WorkoutPlanScreen({
       >
         <Text style={styles.buttonText}>{previewLoading ? 'Checking…' : 'Regenerate plan'}</Text>
       </Pressable>
-    </View>
+      {openDemoRowId ? <DemoModelCredit /> : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24 },
+  content: { paddingBottom: 48 },
+  rowLinks: { flexDirection: 'row', gap: 16 },
   title: { fontSize: 20, fontWeight: '600', marginBottom: 4, textTransform: 'capitalize' },
   versionBadge: { fontSize: 13, color: '#666', marginBottom: 16 },
   session: { marginBottom: 20 },

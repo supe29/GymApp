@@ -1028,3 +1028,14 @@ const DEMO_BY_EXERCISE_NAME: Readonly<Record<string, ExerciseDemo>> = {
 export function demoForExercise(exerciseName: string): ExerciseDemo | null {
   return DEMO_BY_EXERCISE_NAME[exerciseName] ?? null;
 }
+
+/** The caption under a demo figure: a reminder that it shows movement only, plus where the clip differs from the exercise. */
+export function demoNoteText(demo: ExerciseDemo | null): string {
+  return demo
+    ? `Shows general movement, not personal coaching.${demo.note ? ` ${demo.note}` : ''}`
+    : 'No movement demo for this exercise yet. Worked muscles are highlighted.';
+}
+
+/** Required by the figure's CC BY-SA licence wherever it is shown (docs/licensing/anatomical-mesh-license.md). */
+export const DEMO_MODEL_CREDIT =
+  '3D anatomy adapted from Z-Anatomy (CC BY-SA 4.0), based on BodyParts3D © DBCLS (CC BY-SA 2.1 JP)';

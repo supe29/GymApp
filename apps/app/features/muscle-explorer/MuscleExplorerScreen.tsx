@@ -13,7 +13,7 @@ import { BodyModel, DemoFigure, type BodyModelHandle, type ModelSide } from 'thr
 
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import MuscleListFallback from './MuscleListFallback';
-import { demoForExercise } from './prototypeDemoClips';
+import { DEMO_MODEL_CREDIT, demoForExercise, demoNoteText } from '../exercise-demo/prototypeDemoClips';
 
 /** Match the 3D model's highlight colors (packages/three-model shared/BodyModelScene.tsx). */
 const PRIMARY_MUSCLE_COLOR = '#e0442f';
@@ -164,7 +164,7 @@ export default function MuscleExplorerScreen({
             </View>
             {/* Required by the model's CC BY-SA licence (docs/licensing/anatomical-mesh-license.md). */}
             <Text testID="muscle-explorer-model-credit" style={styles.modelCredit}>
-              3D anatomy adapted from Z-Anatomy (CC BY-SA 4.0), based on BodyParts3D © DBCLS (CC BY-SA 2.1 JP)
+              {DEMO_MODEL_CREDIT}
             </Text>
             </View>
             {activeExercise ? (
@@ -182,9 +182,7 @@ export default function MuscleExplorerScreen({
                   </Pressable>
                 ) : null}
                 <Text testID="muscle-explorer-demo-note" style={styles.demoNote}>
-                  {demo
-                    ? `Shows general movement, not personal coaching.${demo.note ? ` ${demo.note}` : ''}`
-                    : 'No movement demo for this exercise yet. Worked muscles are highlighted.'}
+                  {demoNoteText(demo)}
                 </Text>
               </View>
             ) : null}

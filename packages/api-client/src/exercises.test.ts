@@ -1,4 +1,4 @@
-import { getExercisesWithTags, listMuscleGroups } from './exercises';
+import { getExercisesWithTags, getMuscleKeysForExercises, listMuscleGroups } from './exercises';
 import { createMockClient, createQueryBuilderMock } from './testSupport/mockClient';
 
 describe('getExercisesWithTags (FR-4.2/FR-2.2)', () => {
@@ -111,5 +111,48 @@ describe('listMuscleGroups (FR-4.1)', () => {
     expect(from).toHaveBeenCalledWith('muscle_groups');
     expect(builder.order).toHaveBeenCalledWith('display_name');
     expect(result.data).toEqual([{ id: 'mg-1', key: 'chest' }]);
+  });
+});
+
+describe('getMuscleKeysForExercises (FR-4.2)', () => {
+  test('maps primary and secondary muscle keys for only the requested exercises', async () => {
+    const { client, from } = createMockClient();
+    const musclesBuilder = createQueryBuilderMock({
+      data: [
+        { exercise_id: 'ex-1', muscle_group_id: 'mg-quads', role: 'primary' },
+        { exercise_id: 'ex-1', muscle_group_id: 'mg-glutes', role: 'secondary' },
+        { exercise_id: 'ex-1', muscle_group_id: 'mg-unknown', role: 'secondary' },
+      ],
+      error: null,
+    });
+    const groupsBuilder = createQueryBuilderMock({
+      data: [
+        { id: 'mg-quads', key: 'quadriceps' },
+        { id: 'mg-glutes', key: 'glutes' },
+      ],
+      error: null,
+    });
+    from.mockReturnValueOnce(musclesBuilder).mockReturnValueOnce(groupsBuilder);
+
+    const result = await getMuscleKeysForExercises(client, ['ex-1', 'ex-1', 'ex-2']);
+
+    expect(musclesBuilder.in).toHaveBeenCalledWith('exercise_id', ['ex-1', 'ex-2']);
+    expect(result.data?.get('ex-1')).toEqual({ primary: ['quadriceps'], secondary: ['glutes'] });
+    expect(result.data?.has('ex-2')).toBe(false);
+  });
+
+  test('skips the query for an empty list', async () => {
+    const { client, from } = createMockClient();
+    const result = await getMuscleKeysForExercises(client, []);
+    expect(result.data?.size).toBe(0);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  test('passes through a query error', async () => {
+    const { client, from } = createMockClient();
+    from
+      .mockReturnValueOnce(createQueryBuilderMock({ data: null, error: { message: 'nope' } }))
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }));
+    expect(await getMuscleKeysForExercises(client, ['ex-1'])).toEqual({ data: null, error: 'nope' });
   });
 });

@@ -45,7 +45,11 @@ terms. This mesh replaces the Mixamo body recorded in
 - **Attribution in the app**: the 3D view of the Muscle Explorer shows the
   credit line "3D anatomy adapted from Z-Anatomy (CC BY-SA 4.0), based on
   BodyParts3D © DBCLS (CC BY-SA 2.1 JP)" (`MuscleExplorerScreen.tsx`,
-  `muscle-explorer-model-credit`).
+  `muscle-explorer-model-credit`). Screens that show the exercise demo
+  figure or the body model outside the Muscle Explorer (plan, session,
+  freeform session, and the post-session summary) show the same line once at
+  the bottom of the screen while the figure is shown (`DemoModelCredit` in
+  `apps/app/components/ExerciseDemoPanel.tsx`), rather than under every demo.
 - **Open item, BodyParts3D terms**: an older BodyParts3D README mentions an
   additional license for derivative works. Z-Anatomy, the upstream we take
   from, distributes its derivative under CC BY-SA 4.0. Before a public store
