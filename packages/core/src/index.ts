@@ -27,3 +27,4 @@ export * from './planning/nextSessionSelector';
 export * from './dates/localDate';
 export * from './progress/dashboardSummary';
 export * from './progress/sessionSummary';
+export * from './planning/weekSchedule';
