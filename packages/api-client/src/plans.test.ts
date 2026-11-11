@@ -1,6 +1,7 @@
 import type { ExerciseWithTags, GeneratedPlan } from 'core';
 
 import {
+  acceptPlanWithPreferences,
   buildRegenerationPreview,
   createWorkoutPlan,
   generateInitialPlan,
@@ -629,5 +630,100 @@ describe('getPlannedSessionById (FR-5.2, Phase 7)', () => {
     const squat = result.data?.exercises.find((e) => e.exerciseId === 'ex-1');
     expect(squat?.targetWeightKg).toBe(50);
     expect(squat?.targetRepsMin).toBe(8);
+  });
+});
+
+describe('FR-2.7: day plans in regeneration', () => {
+  function profileRow(overrides: Record<string, unknown> = {}) {
+    return {
+      user_id: 'user-1',
+      age: 25,
+      height_cm: 180,
+      weight_kg: 80,
+      biological_sex: 'prefer_not_to_say',
+      fitness_level: 'beginner',
+      goal: 'general_fitness',
+      training_days_per_week: 4,
+      unit_preference: 'metric',
+      training_weekdays: [1, 2, 4, 5],
+      plan_preferences: null,
+      created_at: '',
+      updated_at: '',
+      ...overrides,
+    };
+  }
+
+  function mockClientWithProfile(profile: Record<string, unknown>) {
+    const { client, from } = createMockClient();
+    const builders: ReturnType<typeof createQueryBuilderMock>[] = [];
+    const profileBuilder = createQueryBuilderMock({ data: profile, error: null });
+    from.mockReturnValueOnce(profileBuilder).mockImplementation(() => {
+      const builder = createQueryBuilderMock({ data: [], error: null });
+      builders.push(builder);
+      return builder;
+    });
+    return { client, from, builders: [profileBuilder, ...builders] };
+  }
+
+  test('with chosen weekdays, the preview follows the weekday-aware recommendation', async () => {
+    const { client } = mockClientWithProfile(profileRow());
+    const result = await buildRegenerationPreview(client, 'user-1');
+    // Only identical names get A/B suffixes: "Upper + Core" and "Upper" differ.
+    expect(result.data?.candidatePlan.sessions.map((s) => s.name)).toEqual(['Upper + Core', 'Lower A', 'Upper', 'Lower B']);
+  });
+
+  test('an unsaved candidate preference is previewed without writing anything', async () => {
+    const { client, builders } = mockClientWithProfile(profileRow());
+    const result = await buildRegenerationPreview(client, 'user-1', { preferences: { split: 'push_pull_legs' } });
+
+    expect(result.data?.candidatePlan.splitType).toBe('push_pull_legs');
+    expect(result.data?.candidatePlan.sessions.map((s) => s.name)).toEqual(['Push + Core A', 'Pull', 'Legs', 'Push + Core B']);
+    for (const builder of builders) {
+      expect(builder.insert).not.toHaveBeenCalled();
+      expect(builder.update).not.toHaveBeenCalled();
+      expect(builder.delete).not.toHaveBeenCalled();
+    }
+  });
+
+  test('a stored custom preference is used; without weekdays, templates are used as before', async () => {
+    const custom = { split: 'custom', days: [{ focus: ['push'], core: true }, { focus: ['pull', 'legs'], core: false }, { focus: ['upper'], core: false }, { focus: ['lower'], core: true }] };
+    let { client } = mockClientWithProfile(profileRow({ plan_preferences: custom }));
+    let result = await buildRegenerationPreview(client, 'user-1');
+    expect(result.data?.candidatePlan.sessions.map((s) => s.name)).toEqual(['Push + Core', 'Pull + Legs', 'Upper', 'Lower + Core']);
+
+    ({ client } = mockClientWithProfile(profileRow({ training_weekdays: null, plan_preferences: custom })));
+    result = await buildRegenerationPreview(client, 'user-1');
+    expect(result.data?.candidatePlan.sessions.every((s) => !s.name.includes('+'))).toBe(true);
+  });
+
+  test('acceptPlanWithPreferences saves the preference, then creates the plan version', async () => {
+    const { client, from } = createMockClient();
+    const profileUpdate = createQueryBuilderMock({ data: profileRow(), error: null });
+    from
+      .mockReturnValueOnce(profileUpdate)
+      .mockReturnValueOnce(createQueryBuilderMock({ data: fakePlanRow, error: null }))
+      .mockImplementation(() => createQueryBuilderMock({ data: [], error: null }));
+
+    await acceptPlanWithPreferences(client, 'user-1', { split: 'push_pull_legs' }, fakeGeneratedPlan(), null);
+
+    expect(from.mock.calls[0][0]).toBe('profiles');
+    expect(profileUpdate.update).toHaveBeenCalledWith({ plan_preferences: { split: 'push_pull_legs' } });
+    expect(from.mock.calls.some(([table]) => table === 'workout_plans')).toBe(true);
+  });
+
+  test('acceptPlanWithPreferences restores the old preference if creating the plan fails', async () => {
+    const { client, from } = createMockClient();
+    const first = createQueryBuilderMock({ data: profileRow(), error: null });
+    const restore = createQueryBuilderMock({ data: profileRow(), error: null });
+    from
+      .mockReturnValueOnce(first)
+      .mockImplementation((table: string) =>
+        table === 'profiles' ? restore : createQueryBuilderMock({ data: null, error: { message: 'insert failed' } }),
+      );
+
+    const result = await acceptPlanWithPreferences(client, 'user-1', { split: 'push_pull_legs' }, fakeGeneratedPlan(), { split: 'auto' });
+
+    expect(result.error).toBeTruthy();
+    expect(restore.update).toHaveBeenCalledWith({ plan_preferences: { split: 'auto' } });
   });
 });

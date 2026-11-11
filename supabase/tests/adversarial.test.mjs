@@ -60,7 +60,7 @@ after(async () => {
 // ---------------------------------------------------------------------
 
 describe('migration apply', () => {
-  test('all 11 migrations apply in order and produce the expected schema', async () => {
+  test('all 12 migrations apply in order and produce the expected schema', async () => {
     const { rows } = await asSuperuser(
       db,
       `select table_name from information_schema.tables where table_schema = 'public' order by table_name`,
@@ -103,7 +103,7 @@ describe('migration apply', () => {
       second.db,
       `select count(*)::int as n from information_schema.tables where table_schema = 'public'`,
     );
-    assert.equal(second.applied.length, 11);
+    assert.equal(second.applied.length, 12);
     assert.ok(rows[0].n >= 18);
     await second.db.close();
   });
@@ -507,6 +507,51 @@ describe('FR-2.5: profiles.training_weekdays', () => {
     );
     await assert.rejects(
       asUser(db, userId, 'update public.profiles set training_weekdays = $2 where user_id = $1', [userId, [1, 3, 8]]),
+      /violates check constraint/i,
+    );
+  });
+});
+
+describe('FR-2.7: plan day preferences and the custom split type', () => {
+  test('plan_preferences accepts the known split values and rejects others', async () => {
+    const userId = await seedUser(db);
+    for (const split of ['auto', 'full_body', 'upper_lower', 'push_pull_legs', 'custom']) {
+      await assert.doesNotReject(
+        asUser(db, userId, 'update public.profiles set plan_preferences = $2 where user_id = $1', [userId, { split }]),
+        `split = ${split} should be accepted`,
+      );
+    }
+    await assert.rejects(
+      asUser(db, userId, 'update public.profiles set plan_preferences = $2 where user_id = $1', [userId, { split: 'bro_split' }]),
+      /violates check constraint/i,
+    );
+    await assert.rejects(
+      asUser(db, userId, `update public.profiles set plan_preferences = '[]'::jsonb where user_id = $1`, [userId]),
+      /violates check constraint/i,
+    );
+  });
+
+  test('changing the day count clears custom days but keeps a named split', async () => {
+    const userId = await seedUser(db, { trainingDaysPerWeek: 2 });
+    const custom = { split: 'custom', days: [{ focus: ['push'], core: true }, { focus: ['pull', 'legs'], core: false }] };
+    await asUser(db, userId, 'update public.profiles set plan_preferences = $2 where user_id = $1', [userId, custom]);
+    await asUser(db, userId, 'update public.profiles set training_days_per_week = 3 where user_id = $1', [userId]);
+    let { rows } = await asSuperuser(db, 'select plan_preferences from public.profiles where user_id = $1', [userId]);
+    assert.equal(rows[0].plan_preferences, null);
+
+    await asUser(db, userId, 'update public.profiles set plan_preferences = $2 where user_id = $1', [userId, { split: 'push_pull_legs' }]);
+    await asUser(db, userId, 'update public.profiles set training_days_per_week = 4 where user_id = $1', [userId]);
+    ({ rows } = await asSuperuser(db, 'select plan_preferences from public.profiles where user_id = $1', [userId]));
+    assert.deepEqual(rows[0].plan_preferences, { split: 'push_pull_legs' });
+  });
+
+  test("workout_plans accepts split_type 'custom'", async () => {
+    const userId = await seedUser(db);
+    await assert.doesNotReject(
+      asUser(db, userId, `insert into public.workout_plans (user_id, split_type) values ($1, 'custom')`, [userId]),
+    );
+    await assert.rejects(
+      asUser(db, userId, `insert into public.workout_plans (user_id, split_type) values ($1, 'bro_split')`, [userId]),
       /violates check constraint/i,
     );
   });

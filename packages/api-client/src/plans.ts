@@ -2,16 +2,20 @@ import {
   applyProgressionOverlay,
   diffPlans,
   generatePlan,
+  resolveDayPlans,
   toComparablePlan,
+  validPlanPreferences,
+  validWeekdays,
   type ComparablePlan,
   type GeneratedPlan,
   type PlanDiffSummary,
   type PlanGeneratorInput,
+  type PlanPreferences,
 } from 'core';
 
 import type { GymSupabaseClient } from './client';
 import { getExercisesWithTags } from './exercises';
-import { getProfile, getUserEquipmentIds, listEquipmentItems, type ApiResult } from './profile';
+import { getProfile, getUserEquipmentIds, listEquipmentItems, updateProfile, type ApiResult, type ProfileRow } from './profile';
 import { getLatestEffectiveSuggestionsForExercises } from './progressionSuggestions';
 import type { Database } from './types/database';
 
@@ -378,9 +382,32 @@ export async function createWorkoutPlan(
   };
 }
 
+/**
+ * FR-2.7: the day plans for a profile — the user's preference (or the
+ * given unsaved candidate) resolved against their chosen weekdays. None
+ * until weekdays are chosen, so generation falls back to the FR-2.1
+ * templates exactly as before.
+ */
+function dayPlanInput(
+  profile: ProfileRow,
+  candidate?: PlanPreferences,
+): Pick<PlanGeneratorInput, 'dayPlans' | 'dayPlanRule'> {
+  const weekdays = validWeekdays(profile.training_weekdays, profile.training_days_per_week);
+  if (!weekdays) return {};
+  const preferences = candidate ?? validPlanPreferences(profile.plan_preferences, weekdays.length);
+  const { dayPlans, rule } = resolveDayPlans({
+    preferences,
+    goal: profile.goal,
+    fitnessLevel: profile.fitness_level,
+    weekdays,
+  });
+  return { dayPlans, dayPlanRule: rule };
+}
+
 async function fetchPlanGeneratorInput(
   client: GymSupabaseClient,
   userId: string,
+  candidatePreferences?: PlanPreferences,
 ): Promise<ApiResult<PlanGeneratorInput>> {
   const [profileRes, equipmentIdsRes, equipmentItemsRes, exercisesRes] = await Promise.all([
     getProfile(client, userId),
@@ -409,6 +436,7 @@ async function fetchPlanGeneratorInput(
       trainingDaysPerWeek: profileRes.data.training_days_per_week,
       availableEquipmentKeys,
       exerciseLibrary: exercisesRes.data ?? [],
+      ...dayPlanInput(profileRes.data, candidatePreferences),
     },
     error: null,
   };
@@ -458,9 +486,13 @@ function currentPlanToComparable(currentPlan: PersistedPlan | null, fallbackSpli
 export async function buildRegenerationPreview(
   client: GymSupabaseClient,
   userId: string,
+  options: {
+    /** FR-2.7: an unsaved split/day preference to preview instead of the stored one. Still writes nothing. */
+    preferences?: PlanPreferences;
+  } = {},
 ): Promise<ApiResult<RegenerationPreview>> {
   const [inputRes, currentPlanRes] = await Promise.all([
-    fetchPlanGeneratorInput(client, userId),
+    fetchPlanGeneratorInput(client, userId, options.preferences),
     getCurrentPlan(client, userId),
   ]);
   if (inputRes.error || !inputRes.data) {
@@ -478,4 +510,26 @@ export async function buildRegenerationPreview(
   );
 
   return { data: { candidatePlan, diffSummary, currentPlan }, error: null };
+}
+
+/**
+ * FR-2.7: accepts a previewed plan built from a new split/day preference:
+ * saves the preference, then creates the plan as a new version (DR-5).
+ * If creating the plan fails, the previous preference is restored so the
+ * stored choice always matches the active plan.
+ */
+export async function acceptPlanWithPreferences(
+  client: GymSupabaseClient,
+  userId: string,
+  preferences: PlanPreferences,
+  candidatePlan: GeneratedPlan,
+  previousPreferences: ProfileRow['plan_preferences'],
+): Promise<ApiResult<PersistedPlan>> {
+  const saved = await updateProfile(client, userId, { plan_preferences: preferences });
+  if (saved.error) return { data: null, error: saved.error };
+  const created = await createWorkoutPlan(client, userId, candidatePlan);
+  if (created.error) {
+    await updateProfile(client, userId, { plan_preferences: previousPreferences });
+  }
+  return created;
 }

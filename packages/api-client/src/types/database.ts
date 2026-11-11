@@ -30,15 +30,18 @@ export interface Database {
           unit_preference: 'metric' | 'imperial';
           /** ISO weekdays (1=Mon..7=Sun), one per training day; null = not chosen (0011). */
           training_weekdays: number[] | null;
+          /** FR-2.7 split preference (0012); shape validated by core validPlanPreferences. */
+          plan_preferences: { split: string; days?: { focus: string[]; core: boolean }[] } | null;
           created_at: string;
           updated_at: string;
         };
         Insert: Omit<
           Database['public']['Tables']['profiles']['Row'],
-          'created_at' | 'updated_at' | 'unit_preference' | 'training_weekdays'
+          'created_at' | 'updated_at' | 'unit_preference' | 'training_weekdays' | 'plan_preferences'
         > & {
           unit_preference?: 'metric' | 'imperial';
           training_weekdays?: number[] | null;
+          plan_preferences?: { split: string; days?: { focus: string[]; core: boolean }[] } | null;
         };
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
         Relationships: never[];
@@ -121,7 +124,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          split_type: 'full_body' | 'upper_lower' | 'push_pull_legs';
+          split_type: 'full_body' | 'upper_lower' | 'push_pull_legs' | 'custom';
           plan_version: number;
           effective_from: string;
           superseded_at: string | null;
