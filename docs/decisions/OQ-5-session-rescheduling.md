@@ -1,6 +1,31 @@
 # OQ-5: Rescheduling behavior for missed/skipped planned sessions
 
-**Status:** Explicitly deferred past V1. `plan.md` allowed this outcome directly ("must resolve by Phase 5 or explicitly deferred past V1"); Phase 5 shipped a deliberately narrower behavior instead of full rescheduling semantics, and this document is the formal sign-off that was missing until Phase 13's final open-question pass.
+**Status:** **Resolved** (superseding the V1 deferral below). The original record is kept for history.
+
+## Resolution
+
+The product owner made the two decisions this record said were missing:
+
+1. **Calendar mapping: the user picks their training weekdays.** `profiles.training_weekdays` (migration `0011_weekly_schedule.sql`) stores ISO weekdays, exactly as many as `training_days_per_week`. Plan day N falls on the Nth chosen weekday. Changing the number of training days clears the choice, via a trigger rather than a failed save, and the Plan screen asks again. The picker is prefilled with an even spread.
+2. **Missed days: suggest, and the user chooses.** Nothing moves automatically. A missed session gets options ranked by fixed rules, each with a reason (`packages/core/src/planning/weekSchedule.ts`, `suggestMissedSessionOptions`):
+   1. **Do it on a free day**: today if it's a rest day; otherwise today, with today's session moved to the next free day; otherwise the next free day.
+   2. **Merge it into the next session**, offered only while the combined session stays at 8 exercises or fewer. The reason notes shared muscles.
+   3. **Skip it**, which is always offered.
+
+   Choices are stored in `schedule_adjustments`. They are owner-only under RLS, tied to the plan version and week, and can be undone.
+
+**Rules that follow from this:**
+- A session counts as done if it was completed on any day of its week.
+- Each week starts fresh. An unresolved missed session stays "missed" for that week and is not carried into the next one.
+- Users who haven't picked weekdays keep the day-order behaviour described below (`nextSessionSelector.ts`).
+
+Spec: FR-2.5, FR-2.6, DR-6, AC-16, AC-17, with A-5 rewritten.
+
+---
+
+## Original record (V1)
+
+**Status at the time:** Explicitly deferred past V1. `plan.md` allowed this outcome directly ("must resolve by Phase 5 or explicitly deferred past V1"); Phase 5 shipped a deliberately narrower behavior instead of full rescheduling semantics, and this document is the formal sign-off that was missing until Phase 13's final open-question pass.
 
 ## Decision
 

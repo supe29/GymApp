@@ -17,6 +17,8 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - FR-2.2: Each planned session must be filled with exercises drawn from the exercise library, filtered to only exercises compatible with the user's declared equipment.
 - FR-2.3: Each prescribed exercise must specify target sets, reps, and (where applicable) starting weight/intensity guidance appropriate to the user's fitness level.
 - FR-2.4: The plan must be re-generatable on demand by the user, and automatically proposed for regeneration when a plan-affecting profile field changes (FR-1.4).
+- FR-2.5: The user must be able to choose the weekdays they train on (exactly as many as their training days per week). The plan is then shown week by week, day by day: plan day N falls on the Nth chosen weekday, with rest days in between, and each session shows its exercises and its status (done, today, upcoming, missed, skipped, merged). A session counts as done if it was completed on any day of that week. Until weekdays are chosen, the plan is shown as its day-ordered list.
+- FR-2.6: When a scheduled session's day has passed without it being done, the system must flag it as missed and suggest what to do, ranked by fixed rules with a plain-language reason: do it on a free day (today if possible, moving today's session to a later free day if needed), merge it into the next session if the combined session stays at 8 exercises or fewer, or skip it. The user chooses; nothing is moved automatically, and any choice can be undone. A missed session the user never resolves stays missed for that week only.
 
 ### 1.3 Nutrition Plan Generation
 - FR-3.1: On profile completion, the system must generate daily calorie and macronutrient (protein/carbs/fat) targets, computed deterministically from the user's profile and goal.
@@ -141,6 +143,7 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 ### 4.3 Data Lifecycle
 - DR-4: Deleting an account must delete or irreversibly anonymize all personal data (profile, logs, weight entries) associated with it, excluding aggregate data that cannot be traced back to the user, if any is kept.
 - DR-5: Editing a profile field that feeds nutrition/workout generation must version or timestamp the resulting targets/plan so historical logs remain attributable to the plan that was active when they were logged.
+- DR-6: Chosen training weekdays are part of the user's profile and are cleared when the number of training days per week changes. Missed-session choices (skip, move to a date, merge into another session) are user-owned records tied to the plan version and week they were made in, and are removed with the account (DR-4).
 
 ---
 
@@ -221,6 +224,10 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - AC-13: Given a signed-in user requests account deletion, when the request is confirmed, then their profile, logs, and weight entries are no longer accessible through the app.
 - AC-14: Given a new user has not yet accepted the disclaimer (SR-5), when they attempt to complete onboarding, then they must acknowledge it before a plan is generated.
 
+**Weekly Schedule**
+- AC-16: Given a user has chosen their training weekdays, when they open the plan, then they see the current week day by day with each session on its weekday, rest days marked, and each session's status; a session completed on a different day of the same week shows as done.
+- AC-17: Given a scheduled session's day has passed without it being done, when the user opens the plan, then it is shown as missed with a recommended option and its reason, plus the alternatives (always including skip); choosing an option updates the week, and the choice can be undone.
+
 **Session Summary**
 - AC-15: Given a user completes any workout session, when the session is saved, then a summary of the work done, muscles worked, goal fit, and next session is shown before they leave; if AI text is shown it is labelled as AI-generated and contains only numbers present in the session facts, and if AI text is unavailable the rule-based summary is shown instead.
 
@@ -232,7 +239,7 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - A-2: "Fitness level" is a three-tier self-reported field (beginner/intermediate/advanced); no objective fitness assessment is performed in V1.
 - A-3: A user has exactly one active goal at a time in V1 (no multi-goal or goal-sequencing support).
 - A-4: The muscle-group taxonomy for the 3D model is a fixed, app-defined list (~15-20 groups) decided during design, not user-configurable.
-- A-5: "Today's planned session" assumes a fixed weekly schedule mapped to calendar days once generated; rescheduling/skipping a day's session pushes remaining sessions rather than leaving gaps (exact rescheduling behavior is an open question below).
+- A-5: "Today's planned session" maps plan days onto the weekdays the user chooses (FR-2.5). A missed session does not push the remaining sessions automatically; the user chooses to do it on a free day, merge it into the next session, or skip it (FR-2.6, resolving OQ-5).
 - A-6: PR calculation uses estimated one-rep-max or straightforward heaviest-weight-for-reps logic; exact formula choice is an open question.
 - A-7: Custom user-created foods are private per-user in V1 (not shared into a global database).
 
@@ -250,7 +257,7 @@ New, surfaced while writing this spec:
 - ~~OQ-2: Exact muscle-group taxonomy (which ~15-20 regions) is not yet defined.~~ **Resolved in Phase 3**: fixed 17-entry list (abdominals, abductors, adductors, biceps, calves, chest, forearms, glutes, hamstrings, lats, lower_back, middle_back, neck, quadriceps, shoulders, traps, triceps), derived from the licensed exercise dataset's own vocabulary. See `/docs/decisions/OQ-2-muscle-group-taxonomy.md`.
 - ~~OQ-3: Exact progressive-overload rule (increment size, e.g., fixed +2.5kg vs. percentage-based) is not yet defined.~~ **Resolved in Phase 8**: double progression — fixed +2.5kg weight increment (resetting reps to the floor) on full success with a tracked weight; +1 rep on full success for bodyweight exercises or on partial success (floor met, ceiling not reached); hold on any missed set. See `/docs/decisions/OQ-3-progression-increment-rule.md` for full rationale and alternatives considered.
 - ~~OQ-4: PR calculation method (raw heaviest set vs. estimated 1RM formula) is not yet decided.~~ **Resolved in Phase 10**: heaviest weight per `(exercise, rep count)` bucket is the primary PR metric; estimated 1RM (Epley) is stored as supplementary context only. See `/docs/decisions/OQ-4-pr-calculation-method.md`.
-- ~~OQ-5: Rescheduling behavior when a user misses or skips a planned session day is not yet defined.~~ **Explicitly deferred past V1 in Phase 13**: no calendar-day mapping ships; the next incomplete session (by day order) is always served, cycling on full-plan completion. See `/docs/decisions/OQ-5-session-rescheduling.md`.
+- ~~OQ-5: Rescheduling behavior when a user misses or skips a planned session day is not yet defined.~~ **Resolved after Phase 13** (previously deferred past V1): the user picks their training weekdays (FR-2.5), and a missed session gets ranked options the user chooses between (do it on a free day, merge, or skip; FR-2.6). See `/docs/decisions/OQ-5-session-rescheduling.md`.
 - ~~OQ-6: Whether biological sex is a fixed binary field or supports a non-binary/"prefer not to say" option (and, if so, which BMR formula path applies) is not yet decided.~~ **Resolved in Phase 2**: three-value field (`male`/`female`/`prefer_not_to_say`), not binary and not free text; `prefer_not_to_say` uses the arithmetic mean of the male/female Mifflin-St Jeor constant terms in Phase 6. See `/docs/decisions/OQ-6-biological-sex.md` for full rationale and alternatives considered.
 - OQ-7: Whether custom user-created foods should ever be promoted into a shared/global food database (data quality vs. privacy tradeoff) is undecided.
 - ~~OQ-8: Extent of the "unsafe configuration" warning in SR-2 — what specific thresholds trigger it, and whether it blocks plan generation or only warns, is undecided.~~ **Resolved in Phase 6**: non-blocking (generation always proceeds; the SR-1 floor still clamps the number); warning triggers on `goal === 'fat_loss'` combined with `trainingDaysPerWeek >= 6`, or a pre-floor-clamp target more than 300 kcal below the applicable SR-1 floor. See `/docs/decisions/OQ-1-safe-calorie-floor.md` for full rationale.
