@@ -438,4 +438,43 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     await waitFor(() => expect(mockedApiClient.getSessionInsights).toHaveBeenCalled());
     expect(mockedApiClient.getSessionInsights.mock.calls[0][1]).toMatchObject({ session: 'Leg Day', totals: { sets: 2, reps: 19 } });
   });
+
+  test('FR-2.6: a merged missed session adds its exercises after today’s, without duplicates', async () => {
+    mockedApiClient.startWorkoutSession.mockResolvedValue({
+      data: { id: 'wsession-1', plannedSessionId: 'planned-1', workoutPlanId: 'plan-1', status: 'in_progress', startedAt: '', completedAt: null },
+      error: null,
+    });
+    mockedApiClient.getPlannedSessionById.mockImplementation(async (_client, _user, id) =>
+      id === 'planned-1'
+        ? { data: plannedSession, error: null }
+        : {
+            data: {
+              ...plannedSession,
+              id: 'planned-0',
+              name: 'Missed Day',
+              exercises: [
+                { ...plannedSession.exercises[0], id: 'pse-0a' }, // Squat again: de-duplicated
+                { ...plannedSession.exercises[0], id: 'pse-0b', exerciseId: 'ex-3', exerciseName: 'Leg Press' },
+              ],
+            },
+            error: null,
+          },
+    );
+    mockedApiClient.getUserEquipmentIds.mockResolvedValue({ data: [], error: null });
+    mockedApiClient.listEquipmentItems.mockResolvedValue({ data: [], error: null });
+    mockedApiClient.getExercisesWithTags.mockResolvedValue({ data: exerciseLibrary, error: null });
+    mockedApiClient.getProfile.mockResolvedValue({ data: { unit_preference: 'metric' } as never, error: null });
+    mockedApiClient.getSetLogsForExercises.mockResolvedValue({ data: [], error: null });
+
+    const { getByTestId, queryByTestId } = render(
+      <SessionScreen client={fakeClient} userId="user-1" plannedSessionId="planned-1" mergedPlannedSessionId="planned-0" />,
+    );
+
+    await waitFor(() => expect(getByTestId('set-logger-ex-3')).toBeTruthy());
+    expect(getByTestId('set-logger-ex-1')).toBeTruthy();
+    expect(getByTestId('set-logger-ex-2')).toBeTruthy();
+    expect(queryByTestId('session-slot-pse-0a-skip')).toBeNull();
+    expect(getByTestId('session-slot-pse-0b-skip')).toBeTruthy();
+    expect(mockedApiClient.startWorkoutSession).toHaveBeenCalledWith(fakeClient, 'user-1', 'planned-1');
+  });
 });

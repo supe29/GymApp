@@ -13,6 +13,7 @@ jest.mock('api-client', () => ({
   getWeightEntries: jest.fn(),
   getPendingProgressionSuggestions: jest.fn(),
   updateProgressionSuggestionStatus: jest.fn(),
+  getScheduleAdjustments: jest.fn(() => Promise.resolve({ data: [], error: null })),
 }));
 
 const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
@@ -392,5 +393,54 @@ describe('DashboardScreen (UX-3/UX-6/UX-9)', () => {
     expect(onStartFreeform).toHaveBeenCalled();
     expect(onViewHistory).toHaveBeenCalled();
     expect(onBrowseMuscles).toHaveBeenCalled();
+  });
+
+  describe('FR-2.5/FR-2.6: with chosen training weekdays', () => {
+    // Wednesday 11 Nov 2026; the plan's two sessions fall on Mon and Wed.
+    const WEDNESDAY = new Date(2026, 10, 11, 12, 0);
+
+    function weekdayMocks(completed: { plannedSessionId: string; completedAt: string }[] = []) {
+      defaultMocks();
+      mockedApiClient.getProfile.mockResolvedValue({
+        data: { unit_preference: 'metric', training_days_per_week: 2, training_weekdays: [1, 3] } as never,
+        error: null,
+      });
+      mockedApiClient.getWorkoutSessionHistory.mockResolvedValue({
+        data: completed.map((c, i) => completedSession(`ws${i}`, c.plannedSessionId, c.completedAt)),
+        error: null,
+      });
+    }
+
+    test("next session is today's scheduled one, and the week counts against the chosen days", async () => {
+      weekdayMocks();
+      const { getByTestId } = render(<DashboardScreen client={fakeClient} userId="user-1" now={WEDNESDAY} />);
+
+      await waitFor(() => expect(getByTestId('dashboard-next-session-name').props.children).toBe('Full Body B'));
+      expect(getByTestId('dashboard-next-session-detail').props.children).toBe('Today · 1 exercise');
+      expect(getByTestId('dashboard-week-count').props.children).toBe('0 of 2 sessions');
+    });
+
+    test('a missed session shows a compact suggestion that opens the Plan tab', async () => {
+      weekdayMocks();
+      const onOpenPlan = jest.fn();
+      const { getByTestId } = render(<DashboardScreen client={fakeClient} userId="user-1" now={WEDNESDAY} onOpenPlan={onOpenPlan} />);
+
+      await waitFor(() => expect(getByTestId('missed-session-s1')).toBeTruthy());
+      expect(getByTestId('missed-session-s1-recommendation').props.children).toMatch(/^Suggested: /);
+      fireEvent.press(getByTestId('missed-session-s1-see-options'));
+      expect(onOpenPlan).toHaveBeenCalled();
+    });
+
+    test('when every session this week is done, it says the week is complete', async () => {
+      weekdayMocks([
+        { plannedSessionId: 's1', completedAt: new Date(2026, 10, 9, 18).toISOString() },
+        { plannedSessionId: 's2', completedAt: new Date(2026, 10, 11, 9).toISOString() },
+      ]);
+      const { getByTestId, queryByTestId } = render(<DashboardScreen client={fakeClient} userId="user-1" now={WEDNESDAY} />);
+
+      await waitFor(() => expect(getByTestId('dashboard-week-complete')).toBeTruthy());
+      expect(queryByTestId('dashboard-next-session')).toBeNull();
+      expect(getByTestId('dashboard-week-count').props.children).toBe('2 of 2 sessions');
+    });
   });
 });

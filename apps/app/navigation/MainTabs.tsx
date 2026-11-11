@@ -34,7 +34,7 @@ function HeaderLinkButton({ label, onPress }: { label: string; onPress: () => vo
 
 type DashboardStackParamList = {
   DashboardHome: undefined;
-  Session: { plannedSessionId: string };
+  Session: { plannedSessionId: string; mergedPlannedSessionId?: string };
   FreeformSession: undefined;
   History: undefined;
   MuscleExplorer: undefined;
@@ -89,6 +89,7 @@ function FocusRefreshingDashboard({
       onViewHistory={() => navigation.navigate('History')}
       onBrowseMuscles={() => navigation.navigate('MuscleExplorer')}
       onCreatePlan={() => goToTab('Plan')}
+      onOpenPlan={() => goToTab('Plan')}
       onSetTargets={() => goToTab('Nutrition')}
     />
   );
@@ -106,6 +107,7 @@ function DashboardStackNavigator({ client, userId }: { client: GymSupabaseClient
             client={client}
             userId={userId}
             plannedSessionId={route.params.plannedSessionId}
+            mergedPlannedSessionId={route.params.mergedPlannedSessionId}
             onSessionCompleted={() => navigation.goBack()}
           />
         )}
@@ -220,7 +222,16 @@ export default function MainTabs({ client = getSupabaseClient(), userId }: MainT
     >
       <Tabs.Screen name="Dashboard">{() => <DashboardStackNavigator client={client} userId={userId} />}</Tabs.Screen>
       <Tabs.Screen name="Plan" options={{ headerShown: true }}>
-        {() => <WorkoutPlanScreen client={client} userId={userId} />}
+        {({ navigation }) => (
+          <WorkoutPlanScreen
+            client={client}
+            userId={userId}
+            // FR-2.5: Start on the Plan tab opens the session in the Dashboard stack, like Start on the dashboard.
+            onStartSession={(plannedSessionId, mergedPlannedSessionId) =>
+              navigation.navigate('Dashboard', { screen: 'Session', params: { plannedSessionId, mergedPlannedSessionId } })
+            }
+          />
+        )}
       </Tabs.Screen>
       <Tabs.Screen name="Nutrition">{() => <NutritionStackNavigator client={client} userId={userId} />}</Tabs.Screen>
       <Tabs.Screen name="Progress">{() => <ProgressStackNavigator client={client} userId={userId} />}</Tabs.Screen>

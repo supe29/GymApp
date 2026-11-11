@@ -43,6 +43,8 @@ export interface SessionScreenProps {
   client?: GymSupabaseClient;
   userId: string;
   plannedSessionId: string;
+  /** FR-2.6: a missed planned session merged into this one; its exercises are appended (de-duplicated). */
+  mergedPlannedSessionId?: string;
   onSessionCompleted?: () => void;
 }
 
@@ -99,14 +101,16 @@ interface NewPrCardState {
  * suggestions are shown for accept/decline/override before
  * onSessionCompleted fires.
  *
- * OQ-5 (missed/skipped session rescheduling) is out of scope here, same
- * citation style as profileValidation.ts's OQ-6 note: this screen has no
- * "today"/calendar concept — plannedSessionId is an explicit prop.
+ * This screen has no calendar concept of its own: plannedSessionId is an
+ * explicit prop. Scheduling and missed days (FR-2.5/FR-2.6) are decided by
+ * the Plan screen and dashboard; a missed session merged into today's
+ * arrives here as mergedPlannedSessionId.
  */
 export default function SessionScreen({
   client = getSupabaseClient(),
   userId,
   plannedSessionId,
+  mergedPlannedSessionId,
   onSessionCompleted,
 }: SessionScreenProps) {
   const [loaded, setLoaded] = useState(false);
@@ -158,15 +162,36 @@ export default function SessionScreen({
 
   useEffect(() => {
     async function load() {
-      const [sessionResult, plannedResult, equipmentIdsResult, equipmentItemsResult, exercisesResult, profileResult] =
+      const [sessionResult, mainPlannedResult, mergedResult, equipmentIdsResult, equipmentItemsResult, exercisesResult, profileResult] =
         await Promise.all([
           startWorkoutSession(client, userId, plannedSessionId),
           getPlannedSessionById(client, userId, plannedSessionId),
+          mergedPlannedSessionId ? getPlannedSessionById(client, userId, mergedPlannedSessionId) : Promise.resolve(null),
           getUserEquipmentIds(client, userId),
           listEquipmentItems(client),
           getExercisesWithTags(client),
           getProfile(client, userId),
         ]);
+      // FR-2.6 merge: today's session first, then the missed session's
+      // exercises it doesn't already include. Each keeps its own
+      // planned_session_exercises row, so progression still works per exercise.
+      const merged = mergedResult?.data ?? null;
+      const plannedResult =
+        mainPlannedResult.data && merged
+          ? {
+              ...mainPlannedResult,
+              data: {
+                ...mainPlannedResult.data,
+                name: `${mainPlannedResult.data.name} + ${merged.name}`,
+                exercises: [
+                  ...mainPlannedResult.data.exercises,
+                  ...merged.exercises.filter(
+                    (ex) => !mainPlannedResult.data?.exercises.some((own) => own.exerciseId === ex.exerciseId),
+                  ),
+                ],
+              },
+            }
+          : mainPlannedResult;
       if (profileResult.data) {
         setUnitPreference(profileResult.data.unit_preference);
         setProfileGoal({ goal: profileResult.data.goal, fitnessLevel: profileResult.data.fitness_level });
@@ -224,7 +249,7 @@ export default function SessionScreen({
       setLoaded(true);
     }
     load();
-  }, [client, userId, plannedSessionId]);
+  }, [client, userId, plannedSessionId, mergedPlannedSessionId]);
 
   function handleLogSet(slotId: string, input: { weightKg: number | null; reps: number | null; rpe: number | null }) {
     if (!workoutSessionId || !queueRef.current) return;
