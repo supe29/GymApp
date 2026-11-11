@@ -1,4 +1,5 @@
 import {
+  acceptPlanWithPreferences,
   buildRegenerationPreview,
   createWorkoutPlan,
   generateInitialPlan,
@@ -10,15 +11,20 @@ import {
   type GymSupabaseClient,
   type PersistedPlan,
   type PersistedSession,
+  type ProfileRow,
   type RegenerationPreview,
 } from 'api-client';
 import {
   WEEKDAY_SHORT,
   defaultWeekdays,
   suggestMissedSessionOptions,
+  validPlanPreferences,
   validWeekdays,
   type EntryStatus,
+  type FitnessLevel,
+  type Goal,
   type MissedOption,
+  type PlanPreferences,
   type ScheduleEntry,
   type Weekday,
 } from 'core';
@@ -28,6 +34,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import ExerciseDemoPanel, { DemoModelCredit } from '../../components/ExerciseDemoPanel';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useExerciseMuscles } from '../exercise-demo/useExerciseMuscles';
+import DayFocusEditor from './DayFocusEditor';
 import MissedSessionCard from './MissedSessionCard';
 import RegeneratePlanPrompt from './RegeneratePlanPrompt';
 import WeekdayPicker from './WeekdayPicker';
@@ -97,7 +104,19 @@ export default function WorkoutPlanScreen({
   const [openDemoRowId, setOpenDemoRowId] = useState<string | null>(null);
   const exerciseMuscles = useExerciseMuscles(client);
 
-  const [profileDays, setProfileDays] = useState<{ count: number; weekdays: number[] | null } | null>(null);
+  const [profileDays, setProfileDays] = useState<{
+    count: number;
+    weekdays: number[] | null;
+    goal: Goal;
+    fitnessLevel: FitnessLevel;
+    planPreferences: ProfileRow['plan_preferences'];
+  } | null>(null);
+  // FR-2.7: the day-focus editor, an unsaved preference being previewed, and the post-weekday-change offer.
+  const [editingFocus, setEditingFocus] = useState(false);
+  const [pendingPreferences, setPendingPreferences] = useState<PlanPreferences | null>(null);
+  const [focusBusy, setFocusBusy] = useState(false);
+  const [focusError, setFocusError] = useState<string | null>(null);
+  const [daysChangedPrompt, setDaysChangedPrompt] = useState(false);
   const [editingDays, setEditingDays] = useState(false);
   const [savingDays, setSavingDays] = useState(false);
   const [daysError, setDaysError] = useState<string | null>(null);
@@ -118,7 +137,13 @@ export default function WorkoutPlanScreen({
         setCurrentPlan(planResult.data);
       }
       if (profile) {
-        setProfileDays({ count: profile.training_days_per_week, weekdays: profile.training_weekdays ?? null });
+        setProfileDays({
+          count: profile.training_days_per_week,
+          weekdays: profile.training_weekdays ?? null,
+          goal: profile.goal,
+          fitnessLevel: profile.fitness_level,
+          planPreferences: profile.plan_preferences ?? null,
+        });
       }
       setLoaded(true);
     }
@@ -186,14 +211,24 @@ export default function WorkoutPlanScreen({
   async function handleAcceptRegenerate() {
     if (!preview) return;
     setAccepting(true);
-    const result = await createWorkoutPlan(client, userId, preview.candidatePlan);
+    // FR-2.7: a previewed split/day change also saves the preference, in step with the new plan version.
+    const result = pendingPreferences
+      ? await acceptPlanWithPreferences(client, userId, pendingPreferences, preview.candidatePlan, profileDays?.planPreferences ?? null)
+      : await createWorkoutPlan(client, userId, preview.candidatePlan);
     setAccepting(false);
     if (result.error) {
       setError(result.error);
       return;
     }
+    if (pendingPreferences) {
+      const saved = pendingPreferences;
+      setProfileDays((prev) => (prev ? { ...prev, planPreferences: saved } : prev));
+      setPendingPreferences(null);
+      setEditingFocus(false);
+    }
     setCurrentPlan(result.data);
     setPreview(null);
+    setDaysChangedPrompt(false);
     onPlanRegenerated?.();
   }
 
@@ -201,6 +236,20 @@ export default function WorkoutPlanScreen({
     // FR-2.4/AC-3-equivalent for the on-demand path: declining makes no
     // API call at all — the previewed candidate is simply discarded.
     setPreview(null);
+    setPendingPreferences(null);
+  }
+
+  async function handlePreviewFocus(preferences: PlanPreferences) {
+    setFocusBusy(true);
+    setFocusError(null);
+    const result = await buildRegenerationPreview(client, userId, { preferences });
+    setFocusBusy(false);
+    if (result.error || !result.data) {
+      setFocusError(result.error ?? 'Could not build a preview.');
+      return;
+    }
+    setPendingPreferences(preferences);
+    setPreview(result.data);
   }
 
   async function handleSaveDays(weekdays: Weekday[]) {
@@ -212,8 +261,21 @@ export default function WorkoutPlanScreen({
       setDaysError(result.error ?? 'Could not save your days.');
       return;
     }
-    setProfileDays({ count: result.data.training_days_per_week, weekdays: result.data.training_weekdays ?? weekdays });
+    const saved = result.data;
+    setProfileDays((prev) =>
+      prev
+        ? { ...prev, count: saved.training_days_per_week, weekdays: saved.training_weekdays ?? weekdays }
+        : {
+            count: saved.training_days_per_week,
+            weekdays: saved.training_weekdays ?? weekdays,
+            goal: saved.goal,
+            fitnessLevel: saved.fitness_level,
+            planPreferences: saved.plan_preferences ?? null,
+          },
+    );
     setEditingDays(false);
+    // FR-2.7: the recommended day focus depends on the weekdays, so offer to update the workouts.
+    setDaysChangedPrompt(true);
   }
 
   async function handleChoose(missed: ScheduleEntry, option: MissedOption) {
@@ -437,6 +499,34 @@ export default function WorkoutPlanScreen({
         />
       ) : null}
 
+      {daysChangedPrompt && !showPicker ? (
+        <View testID="plan-days-changed-prompt" style={styles.prompt}>
+          <Text style={styles.promptTitle}>Your training days changed</Text>
+          <Text style={styles.promptText}>Update your workouts so each day&apos;s exercises suit the new days?</Text>
+          <View style={styles.entryActions}>
+            <Pressable testID="plan-days-changed-preview" style={styles.startButton} onPress={handleRequestRegenerate} accessibilityRole="button">
+              <Text style={styles.buttonText}>{previewLoading ? 'Checking…' : 'Preview update'}</Text>
+            </Pressable>
+            <Pressable testID="plan-days-changed-dismiss" onPress={() => setDaysChangedPrompt(false)} accessibilityRole="button">
+              <Text style={styles.link}>Not now</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {editingFocus && chosenWeekdays && profileDays ? (
+        <DayFocusEditor
+          weekdays={chosenWeekdays}
+          goal={profileDays.goal}
+          fitnessLevel={profileDays.fitnessLevel}
+          current={validPlanPreferences(profileDays.planPreferences, chosenWeekdays.length)}
+          busy={focusBusy}
+          error={focusError}
+          onPreview={handlePreviewFocus}
+          onCancel={() => setEditingFocus(false)}
+        />
+      ) : null}
+
       {week && !editingDays ? (
         <>
           <View style={styles.weekHeader}>
@@ -456,6 +546,9 @@ export default function WorkoutPlanScreen({
               </Pressable>
               <Pressable testID="plan-edit-days" onPress={() => setEditingDays(true)} accessibilityRole="button">
                 <Text style={styles.link}>Edit days</Text>
+              </Pressable>
+              <Pressable testID="plan-customise-days" onPress={() => setEditingFocus(true)} accessibilityRole="button">
+                <Text style={styles.link}>Customise workouts</Text>
               </Pressable>
             </View>
           </View>
@@ -570,4 +663,7 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: '#fff', fontWeight: '600' },
   error: { color: '#b00020', marginTop: 12 },
+  prompt: { backgroundColor: '#eef4ff', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#c9d8f5' },
+  promptTitle: { fontSize: 15, fontWeight: '700' },
+  promptText: { fontSize: 13, color: '#444', marginTop: 2 },
 });

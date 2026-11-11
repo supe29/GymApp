@@ -16,6 +16,7 @@ jest.mock('api-client', () => ({
   getScheduleAdjustments: jest.fn(),
   createScheduleAdjustment: jest.fn(),
   deleteScheduleAdjustment: jest.fn(),
+  acceptPlanWithPreferences: jest.fn(),
 }));
 
 const mocked = apiClient as jest.Mocked<typeof apiClient>;
@@ -40,7 +41,10 @@ const PLAN = {
 };
 
 function profile(weekdays: number[] | null) {
-  return { data: { training_days_per_week: 3, training_weekdays: weekdays, unit_preference: 'metric' } as never, error: null };
+  return {
+    data: { training_days_per_week: 3, training_weekdays: weekdays, unit_preference: 'metric', goal: 'general_fitness', fitness_level: 'beginner', plan_preferences: null } as never,
+    error: null,
+  };
 }
 
 function mocks(weekdays: number[] | null = [1, 3, 5]) {
@@ -238,5 +242,76 @@ describe('WorkoutPlanScreen week view (FR-2.5/FR-2.6/AC-16/AC-17)', () => {
 
     expect(mocked.deleteScheduleAdjustment).toHaveBeenCalledWith(fakeClient, 'user-1', 'adj-b');
     expect(mocked.deleteScheduleAdjustment).toHaveBeenCalledWith(fakeClient, 'user-1', 'adj-a');
+  });
+
+  describe('FR-2.7: customising day focus', () => {
+    const preview = {
+      candidatePlan: { splitType: 'push_pull_legs', splitRuleId: 'split-02', sessions: [], inputsSnapshot: {} } as never,
+      diffSummary: {
+        splitTypeChanged: true,
+        previousSplitType: 'full_body' as const,
+        nextSplitType: 'push_pull_legs' as const,
+        sessionDiffs: [],
+        summaryCounts: { sessionsAdded: 0, sessionsRemoved: 0, exercisesAdded: 3, exercisesRemoved: 3, prescriptionsChanged: 0 },
+      },
+      currentPlan: PLAN,
+    };
+
+    test('Customise workouts → choose a split → preview the diff → accept saves the preference and the new plan', async () => {
+      mocks();
+      mocked.buildRegenerationPreview.mockResolvedValue({ data: preview as never, error: null });
+      mocked.acceptPlanWithPreferences.mockResolvedValue({ data: { ...PLAN, id: 'plan-2', planVersion: 2 }, error: null });
+      const onPlanRegenerated = jest.fn();
+      const { findByTestId, getByTestId } = renderPlan({ onPlanRegenerated });
+
+      fireEvent.press(await findByTestId('plan-customise-days'));
+      fireEvent.press(getByTestId('plan-split-push_pull_legs'));
+      await act(async () => {
+        fireEvent.press(getByTestId('plan-day-focus-preview'));
+      });
+
+      expect(mocked.buildRegenerationPreview).toHaveBeenCalledWith(fakeClient, 'user-1', { preferences: { split: 'push_pull_legs' } });
+      await act(async () => {
+        fireEvent.press(await findByTestId('regenerate-accept'));
+      });
+
+      expect(mocked.acceptPlanWithPreferences).toHaveBeenCalledWith(
+        fakeClient,
+        'user-1',
+        { split: 'push_pull_legs' },
+        preview.candidatePlan,
+        null,
+      );
+      expect(mocked.createWorkoutPlan).not.toHaveBeenCalled();
+      expect(onPlanRegenerated).toHaveBeenCalled();
+      expect((await findByTestId('plan-version-badge')).props.children).toEqual(['v', 2]);
+    });
+
+    test('declining the preview saves nothing', async () => {
+      mocks();
+      mocked.buildRegenerationPreview.mockResolvedValue({ data: preview as never, error: null });
+      const { findByTestId, getByTestId } = renderPlan();
+
+      fireEvent.press(await findByTestId('plan-customise-days'));
+      await act(async () => {
+        fireEvent.press(getByTestId('plan-day-focus-preview'));
+      });
+      fireEvent.press(await findByTestId('regenerate-decline'));
+
+      expect(mocked.acceptPlanWithPreferences).not.toHaveBeenCalled();
+      expect(mocked.createWorkoutPlan).not.toHaveBeenCalled();
+    });
+
+    test('after saving new training days, it offers to update the workouts to match', async () => {
+      mocks(null);
+      mocked.updateTrainingWeekdays.mockResolvedValue(profile([1, 3, 5]) as never);
+      mocked.buildRegenerationPreview.mockResolvedValue({ data: preview as never, error: null });
+      const { findByTestId } = renderPlan();
+
+      fireEvent.press(await findByTestId('plan-weekday-save'));
+      fireEvent.press(await findByTestId('plan-days-changed-preview'));
+
+      await waitFor(() => expect(mocked.buildRegenerationPreview).toHaveBeenCalledWith(fakeClient, 'user-1'));
+    });
   });
 });
