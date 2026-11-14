@@ -4,7 +4,7 @@
 // a minor, conscious scope note (common default-program practice), not an
 // open question requiring resolution.
 
-import type { SplitType } from './splitRules';
+import type { NamedSplitType } from './splitRules';
 
 export interface DayTemplate {
   name: string;
@@ -12,7 +12,7 @@ export interface DayTemplate {
 }
 
 /** FR-2.1: which muscle groups each split's day(s) target. */
-export const SPLIT_DAY_TEMPLATES: Record<SplitType, DayTemplate[]> = {
+export const SPLIT_DAY_TEMPLATES: Record<NamedSplitType, DayTemplate[]> = {
   full_body: [
     {
       name: 'Full Body',

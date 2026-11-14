@@ -1,9 +1,8 @@
 // Phase 11: a pure, minimal "what's next" selector for the dashboard
-// (UX-3). Deliberately does not attempt OQ-5's full rescheduling semantics
-// (missed/skipped-session handling, calendar-day mapping) — this app has
-// no concept of "today" for a plan, only a fixed day-order sequence. Picks
-// the first session not yet completed, cycling back to day 1 once every
-// session in the plan has been done at least once.
+// (UX-3), by day order only. Since OQ-5 was resolved, a user who has
+// picked training weekdays gets date-aware scheduling and missed-day
+// handling from ./weekSchedule.ts instead; these selectors are the
+// fallback for a user who hasn't picked weekdays yet.
 
 export interface PlanSessionSummary {
   id: string;
@@ -28,8 +27,9 @@ export function determineNextPlannedSession<T extends PlanSessionSummary>(
  * day 1 after the last day, so the dashboard keeps rotating through the
  * plan rather than sticking on day 1 once every session has been done.
  * Returns the first session when nothing has been completed yet, or when
- * the last completed session belongs to an older plan version (DR-5). It
- * still does not handle missed or skipped days (OQ-5 remains open).
+ * the last completed session belongs to an older plan version (DR-5).
+ * Used when no training weekdays are chosen; with them, weekSchedule.ts
+ * decides what's next and handles missed days (FR-2.5/FR-2.6).
  */
 export function determineNextPlannedSessionAfter<T extends PlanSessionSummary>(
   sessions: T[],

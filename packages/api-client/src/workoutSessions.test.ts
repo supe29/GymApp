@@ -1,8 +1,10 @@
 import {
   completeWorkoutSession,
+  getCompletedSessionsInRange,
   getSetLogsForExercises,
   getSetLogsForSession,
   getWorkoutSessionHistory,
+  getWorkoutSessionsForDay,
   logSet,
   startWorkoutSession,
   type WorkoutSessionRow,
@@ -205,5 +207,59 @@ describe('getWorkoutSessionHistory (FR-5.5/AC-8)', () => {
 
     expect(result.data?.[0].session.plannedSessionId).toBeNull();
     expect(result.data?.[0].session.workoutPlanId).toBeNull();
+  });
+});
+
+describe('getWorkoutSessionsForDay (FR-8.5)', () => {
+  test('filters sessions to the given start window and attaches their set logs', async () => {
+    const { client, from } = createMockClient();
+    const sessionsBuilder = createQueryBuilderMock({ data: [fakeSessionRow], error: null });
+    from
+      .mockReturnValueOnce(sessionsBuilder)
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [fakeSetLogRow], error: null }))
+      .mockReturnValueOnce(createQueryBuilderMock({ data: [{ id: 'ex-1', name: 'Squat' }], error: null }));
+
+    const result = await getWorkoutSessionsForDay(client, 'user-1', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z');
+
+    expect(sessionsBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(sessionsBuilder.gte).toHaveBeenCalledWith('started_at', '2026-01-01T00:00:00Z');
+    expect(sessionsBuilder.lt).toHaveBeenCalledWith('started_at', '2026-01-02T00:00:00Z');
+    expect(result.data?.[0].setLogs).toHaveLength(1);
+  });
+
+  test('returns an empty array for a day with no sessions', async () => {
+    const { client, from } = createMockClient();
+    from.mockReturnValueOnce(createQueryBuilderMock({ data: [], error: null }));
+
+    const result = await getWorkoutSessionsForDay(client, 'user-1', 'a', 'b');
+
+    expect(result).toEqual({ data: [], error: null });
+  });
+});
+
+describe('getCompletedSessionsInRange (FR-2.8)', () => {
+  test('filters completed sessions to the window, scoped to the user', async () => {
+    const { client, from } = createMockClient();
+    const builder = createQueryBuilderMock({
+      data: [{ ...fakeSessionRow, status: 'completed', completed_at: '2026-01-01T18:00:00Z' }],
+      error: null,
+    });
+    from.mockReturnValueOnce(builder);
+
+    const result = await getCompletedSessionsInRange(client, 'user-1', '2026-01-01T00:00:00Z', '2026-02-01T00:00:00Z');
+
+    expect(from).toHaveBeenCalledWith('workout_sessions');
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(builder.eq).toHaveBeenCalledWith('status', 'completed');
+    expect(builder.gte).toHaveBeenCalledWith('completed_at', '2026-01-01T00:00:00Z');
+    expect(builder.lt).toHaveBeenCalledWith('completed_at', '2026-02-01T00:00:00Z');
+    expect(result).toEqual({ data: [{ plannedSessionId: 'planned-1', completedAt: '2026-01-01T18:00:00Z' }], error: null });
+  });
+
+  test('passes errors through', async () => {
+    const { client, from } = createMockClient();
+    from.mockReturnValueOnce(createQueryBuilderMock({ data: null, error: { message: 'boom' } }));
+
+    expect(await getCompletedSessionsInRange(client, 'user-1', 'a', 'b')).toEqual({ data: null, error: 'boom' });
   });
 });

@@ -24,13 +24,16 @@ import {
   type InteractionState,
 } from '../interactionContract';
 import { MUSCLE_REGION_IDS } from '../muscleRegions';
+import type { PlacedLabel } from '../regionLabels';
 import BodyModelScene from '../shared/BodyModelScene';
+import RegionLabelOverlay from '../shared/RegionLabelOverlay';
 
 const BodyModel = forwardRef<BodyModelHandle, BodyModelProps>(function BodyModel(
-  { onSelectionChange, onInteractionStateChange, activeExerciseMuscles },
+  { onSelectionChange, onInteractionStateChange, activeExerciseMuscles, regionIntensity, regionLabels },
   ref,
 ) {
   const [state, setState] = useState<InteractionState>(defaultInteractionState());
+  const [labels, setLabels] = useState<PlacedLabel[]>([]);
   const dragOrigin = useRef<{ x: number; y: number } | null>(null);
 
   // The latest state, read synchronously by dispatch so the parent
@@ -96,8 +99,12 @@ const BodyModel = forwardRef<BodyModelHandle, BodyModelProps>(function BodyModel
           state={state}
           onRegionTap={(regionId) => dispatch({ type: 'select', regionId })}
           activeExerciseMuscles={activeExerciseMuscles}
+          regionIntensity={regionIntensity}
+          regionLabels={regionLabels}
+          onLabelLayout={setLabels}
         />
       </Canvas>
+      {regionLabels ? <RegionLabelOverlay labels={labels} /> : null}
     </div>
   );
 });

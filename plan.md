@@ -518,7 +518,7 @@ Run a full end-to-end regression pass across web, iOS, and Android covering ever
 Full end-to-end suite across all seven user flows on all three platforms. Manual accessibility/screen-reader pass. Load/performance spot checks on reference devices.
 
 ### Acceptance criteria
-All acceptance criteria (AC-1 through AC-15) pass on web, iOS, and Android. No open question remains unresolved without an explicit, recorded deferral decision. The app is ready to submit/deploy. Every item in `/docs/deferred-production-checks.md` (real OAuth/device/Supabase integration checks accumulated from Phases 2 onward, deliberately deferred past each development phase but mandatory before production) is checked off, not silently left unverified.
+All acceptance criteria (AC-1 through AC-22) pass on web, iOS, and Android. No open question remains unresolved without an explicit, recorded deferral decision. The app is ready to submit/deploy. Every item in `/docs/deferred-production-checks.md` (real OAuth/device/Supabase integration checks accumulated from Phases 2 onward, deliberately deferred past each development phase but mandatory before production) is checked off, not silently left unverified.
 
 ### Dependencies
 Phase 11 and Phase 12 complete.
@@ -553,7 +553,7 @@ Carried from `spec.md`, mapped to where they must be resolved before that phase 
 | ~~OQ-2: Exact muscle-group taxonomy~~ — **Resolved in Phase 3**, see `/docs/decisions/OQ-2-muscle-group-taxonomy.md` | Phase 3 |
 | ~~OQ-3: Exact progressive-overload increment rule~~ — **Resolved in Phase 8**, see `/docs/decisions/OQ-3-progression-increment-rule.md` | Phase 8 |
 | ~~OQ-4: PR calculation method~~ — **Resolved in Phase 10**, see `/docs/decisions/OQ-4-pr-calculation-method.md` | Phase 10 |
-| ~~OQ-5: Rescheduling behavior for missed/skipped sessions~~ — **Explicitly deferred past V1 in Phase 13**, see `/docs/decisions/OQ-5-session-rescheduling.md` | Phase 5 (or explicitly deferred past V1) |
+| ~~OQ-5: Rescheduling behavior for missed/skipped sessions~~ — Deferred in Phase 13, then **resolved**: user-chosen weekdays plus suggest-and-choose missed-day options (FR-2.5/FR-2.6), see `/docs/decisions/OQ-5-session-rescheduling.md` | Phase 5 (or explicitly deferred past V1) |
 | ~~OQ-6: Biological sex field options and formula branching~~ — **Resolved in Phase 2**, see `/docs/decisions/OQ-6-biological-sex.md` | Phase 2 |
 | OQ-7: Whether custom foods ever get promoted to a shared database | Not required for V1; deferred |
 | ~~OQ-8: Exact SR-2 unsafe-configuration thresholds and block-vs-warn behavior~~ — **Resolved in Phase 6**, see `/docs/decisions/OQ-1-safe-calorie-floor.md` | Phase 6 |
@@ -578,6 +578,9 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 |---|---|---|
 | FR-1.1–1.4 | Phase 2 (generation hook completed in Phase 5/6) | |
 | FR-2.1–2.4 | Phase 5 | |
+| FR-2.5, FR-2.6 (weekly schedule, missed days) | Phase 5 (schedule logic in `packages/core/src/planning/weekSchedule.ts`), Phase 11 (Plan screen and dashboard) | Added after Phase 13; resolves OQ-5. |
+| FR-2.7 (day focus, split override, core finisher) | Phase 5 (`packages/core/src/planning/dayPlanner.ts`, `planGenerator.ts` day plans), Phase 11 (Plan screen `DayFocusEditor`) | Added after Phase 13; changes apply through FR-2.4 regeneration. |
+| FR-2.8 (week and month views, past and future) | Phase 5 (`packages/core/src/planning/monthSchedule.ts`), Phase 11 (Plan screen week navigation and `MonthCalendar`; range queries in `packages/api-client` `getCompletedSessionsInRange`, `getScheduleAdjustmentsInRange`) | Added after Phase 13; builds on the FR-2.5 week schedule. |
 | FR-3.1, 3.2 | Phase 6 | |
 | FR-3.3 (no meals/recipes generated) | Phase 6 | Negative requirement — satisfied by not building a meal/recipe generator; no dedicated test beyond absence of that feature surface. |
 | FR-4.1–4.4 | Phase 4 | FR-4.4 parity now has measurable acceptance criteria (this revision). |
@@ -586,6 +589,7 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 | FR-7.1–7.4 | Phase 9 | FR-7.1/7.4 now explicitly split into native/browser paths (this revision). |
 | FR-8.1–8.3 | Phase 10 | |
 | FR-8.4 (post-session summary) | Phase 10 (summary facts in `packages/core/src/progress/sessionSummary.ts`), Phase 11 (summary screen) | Added after Phase 11; shown after every session. |
+| FR-8.5 (per-day body progress) | Phase 10 (`packages/core/src/progress/muscleCoverage.ts`), Phase 4 (`regionIntensity` heatmap and `regionLabels` on-model numbers props in `packages/three-model`, parity-tested), Phase 11 (`BodyProgressScreen`, the Progress tab's first screen) | Added after Phase 13; brings the training-volume heatmap into V1 scope (intent.md), but not recovery modelling. |
 | FR-9.1 | Phase 2 | |
 | FR-9.2 (password reset) | Phase 2 | Test coverage added this revision. |
 | FR-9.3 | Phase 2 (stub), Phase 12 (complete) | |
@@ -612,6 +616,7 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 | DR-3 | Phase 1 (RLS) | |
 | DR-4 | Phase 12 | |
 | DR-5 (versioning) | Phase 1 (schema), Phase 5 & Phase 6 (generation-layer versioning) | Previously unowned; owned this revision. |
+| DR-6 (weekdays, missed-session choices) | Phase 1 (schema: migration 0011, RLS), Phase 12 (re-audit) | Covered by the cross-user RLS tests in `supabase/tests/adversarial.test.mjs`. |
 
 ### UX Requirements
 
@@ -668,6 +673,10 @@ Every requirement ID from `spec.md` is mapped to at least one owning phase below
 | AC-11, AC-12 | Phase 10 |
 | AC-13, AC-14 | Phase 2 (implementation), Phase 12 (integration-level verification) |
 | AC-15 | Phase 11 |
+| AC-16, AC-17 | Phase 11 |
+| AC-18, AC-19 | Phase 5 (day planner, generator), Phase 11 (Plan screen editor) |
+| AC-21, AC-22 | Phase 5 (month schedule logic), Phase 11 (Plan screen week/month views) |
+| AC-20 | Phase 10 (coverage logic), Phase 11 (Body progress screen) |
 
 ## Previously Unowned Requirements (Now Addressed in This Revision)
 

@@ -33,7 +33,9 @@ import {
   type InteractionState,
 } from '../interactionContract';
 import { MUSCLE_REGION_IDS } from '../muscleRegions';
+import type { PlacedLabel } from '../regionLabels';
 import BodyModelScene from '../shared/BodyModelScene';
+import RegionLabelOverlay from '../shared/RegionLabelOverlay';
 
 function touchDistance(touches: readonly { pageX: number; pageY: number }[]): number | null {
   if (touches.length < 2) return null;
@@ -42,10 +44,11 @@ function touchDistance(touches: readonly { pageX: number; pageY: number }[]): nu
 }
 
 const BodyModel = forwardRef<BodyModelHandle, BodyModelProps>(function BodyModel(
-  { onSelectionChange, onInteractionStateChange, activeExerciseMuscles },
+  { onSelectionChange, onInteractionStateChange, activeExerciseMuscles, regionIntensity, regionLabels },
   ref,
 ) {
   const [state, setState] = useState<InteractionState>(defaultInteractionState());
+  const [labels, setLabels] = useState<PlacedLabel[]>([]);
   const lastTouch = useRef<{ x: number; y: number } | null>(null);
   const lastPinchDistance = useRef<number | null>(null);
 
@@ -127,8 +130,12 @@ const BodyModel = forwardRef<BodyModelHandle, BodyModelProps>(function BodyModel
           state={state}
           onRegionTap={(regionId) => dispatch({ type: 'select', regionId })}
           activeExerciseMuscles={activeExerciseMuscles}
+          regionIntensity={regionIntensity}
+          regionLabels={regionLabels}
+          onLabelLayout={setLabels}
         />
       </Canvas>
+      {regionLabels ? <RegionLabelOverlay labels={labels} /> : null}
     </View>
   );
 });

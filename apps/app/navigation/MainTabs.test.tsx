@@ -39,6 +39,10 @@ jest.mock('api-client', () => ({
   requestAccountDeletion: jest.fn(),
   buildNutritionRegenerationPreview: jest.fn(),
   createNutritionTargets: jest.fn(),
+  getWorkoutSessionsForDay: jest.fn(),
+  getMuscleKeysForExercises: jest.fn(),
+  listMuscleGroups: jest.fn(),
+  getPlannedSessionById: jest.fn(),
 }));
 
 const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
@@ -69,6 +73,9 @@ beforeEach(() => {
   mockedApiClient.getWeightEntries.mockResolvedValue({ data: [], error: null });
   mockedApiClient.getUserEquipmentIds.mockResolvedValue({ data: [], error: null });
   mockedApiClient.listEquipmentItems.mockResolvedValue({ data: [], error: null });
+  mockedApiClient.getWorkoutSessionsForDay.mockResolvedValue({ data: [], error: null });
+  mockedApiClient.getMuscleKeysForExercises.mockResolvedValue({ data: new Map(), error: null });
+  mockedApiClient.listMuscleGroups.mockResolvedValue({ data: [], error: null });
 });
 
 function renderMainTabs() {
@@ -104,15 +111,26 @@ describe('MainTabs (UX-3/FR-8.3)', () => {
     await waitFor(() => expect(getByTestId('nutrition-empty-state')).toBeTruthy());
   });
 
-  test('switches to the Progress tab and can reach personal records via the header button', async () => {
+  test('FR-8.5: the Progress tab opens on Body progress, with weight and records via the header buttons', async () => {
     const { getByText, getByTestId } = renderMainTabs();
     await waitFor(() => expect(getByTestId('dashboard-screen')).toBeTruthy());
 
     fireEvent.press(getByText('Progress'));
+    await waitFor(() => expect(getByTestId('body-progress-screen')).toBeTruthy());
+
+    fireEvent.press(getByText('Weight'));
     await waitFor(() => expect(getByTestId('weight-trend-screen')).toBeTruthy());
 
     fireEvent.press(getByText('Records'));
     await waitFor(() => expect(getByTestId('personal-records-screen')).toBeTruthy());
+  });
+
+  test('Dashboard "Log weight" quick action still lands on the weight trend', async () => {
+    const { getByTestId } = renderMainTabs();
+    await waitFor(() => expect(getByTestId('dashboard-screen')).toBeTruthy());
+
+    fireEvent.press(getByTestId('dashboard-quick-log-weight'));
+    await waitFor(() => expect(getByTestId('weight-trend-screen')).toBeTruthy());
   });
 
   test('switches to the Profile tab', async () => {

@@ -13,6 +13,22 @@ export interface BodyModelProps {
    * driven by state external to this component.
    */
   activeExerciseMuscles?: { primary: readonly string[]; secondary: readonly string[] } | null;
+  /**
+   * FR-8.5 heatmap: 0–1 per muscle-group key (RegionId). Regions are tinted
+   * steadily in proportion (see heatmap.ts). When set, it takes the place
+   * of the activeExerciseMuscles pulse. Like that prop, it bypasses
+   * interactionReducer.
+   */
+  regionIntensity?: Readonly<Record<string, number>> | null;
+  /**
+   * FR-8.5 on-model numbers: short text per muscle-group key (RegionId),
+   * e.g. "60%", drawn as a label on that muscle (see regionLabels.ts).
+   * Labels on the side facing away, off screen, or overlapping a
+   * higher-priority label are hidden; the selected region's label comes
+   * first, then the order of the keys. Like regionIntensity, it bypasses
+   * interactionReducer.
+   */
+  regionLabels?: Readonly<Record<string, string>> | null;
 }
 
 export interface DemoFigureProps {

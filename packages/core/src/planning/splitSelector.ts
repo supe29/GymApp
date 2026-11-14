@@ -4,7 +4,7 @@
 
 import type { FitnessLevel, Goal } from '../validation/profileValidation';
 import { SPLIT_DAY_TEMPLATES } from './rules/splitDayTemplates';
-import { SPLIT_RULES, type SplitType } from './rules/splitRules';
+import { SPLIT_RULES, type NamedSplitType } from './rules/splitRules';
 
 export interface SplitSelectionInput {
   goal: Goal;
@@ -21,7 +21,7 @@ export interface SessionTemplate {
 }
 
 export interface SplitSelection {
-  splitType: SplitType;
+  splitType: NamedSplitType;
   sessionTemplates: SessionTemplate[];
   /** NFR-7: which rule in SPLIT_RULES produced this selection. */
   splitRuleId: string;

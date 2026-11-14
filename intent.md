@@ -11,7 +11,7 @@ People who want to train and manage their diet toward a specific goal (fat loss,
 
 ## Core User Experience
 - Create a profile with age, height, weight, fitness level, available equipment, and a goal (fat loss, muscle gain, strength, or general fitness).
-- Receive a personalized workout plan and daily nutrition targets (calories and macros) generated from that profile.
+- Receive a personalized workout plan and daily nutrition targets (calories and macros) generated from that profile, and see the plan week by week or as a month calendar.
 - Explore an interactive 3D body model to understand which muscles are trained by a given exercise, and use it to discover exercises for a given muscle group.
 - Log workouts (sets, reps, weight) against the plan or freeform, with the plan adapting over time based on logged performance (progressive overload).
 - Log food eaten and track it against daily calorie/macro targets.
@@ -25,14 +25,14 @@ People who want to train and manage their diet toward a specific goal (fat loss,
 - Workout logging (sets/reps/weight), freeform or attached to a planned session.
 - Automatic, rule-based progressive overload suggestions based on logged workout performance.
 - Food logging against nutrition targets, including barcode scanning for packaged foods.
-- Progress tracking: weight trend over time and automatically-derived strength PRs.
+- Progress tracking: weight trend over time, automatically-derived strength PRs, and a per-day body view. The body view shows on the 3D model how much of each muscle's planned work for that day has been done, and what is left.
 - Account creation and sign-in (email/password and social login).
 - Available on both web and mobile.
 
 ## Out of Scope (V1)
 - AI/LLM-generated workout or nutrition plans — the actual plan numbers come from deterministic rules/formulas, not a model. An LLM-based coaching/chat layer may be added later strictly as an assistive layer on top, not as the source of plan numbers.
 - Prescriptive meal plans or recipes — V1 only sets nutrition targets for the user to log against.
-- Muscle-recovery / training-volume heatmap visualization on the 3D model — V1 only supports browsing exercises by muscle.
+- Muscle-recovery visualization on the 3D model (fatigue/readiness modelling across days). V1 does show a per-day "done vs planned" muscle heatmap (see Progress tracking below), but nothing that models recovery.
 - Body measurements and progress photos — only weight trend and PRs are tracked in V1.
 - Push notifications and reminders of any kind.
 - Monetization, subscriptions, or in-app payments — V1 is free with no payment infrastructure.

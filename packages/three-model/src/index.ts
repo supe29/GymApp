@@ -2,5 +2,7 @@ export * from './interactionContract';
 export * from './muscleRegions';
 export * from './gestureMath';
 export * from './BodyModelTypes';
+export * from './heatmap';
+export * from './regionLabels';
 export { default as BodyModel } from './BodyModel';
 export { default as DemoFigure } from './DemoFigure';

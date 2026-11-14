@@ -19,6 +19,8 @@ import {
   computeDailyTotals,
   countCompletedSince,
   determineNextPlannedSessionAfter,
+  suggestMissedSessionOptions,
+  WEEKDAY_SHORT,
   formatWeight,
   localDateString,
   startOfLocalWeek,
@@ -30,14 +32,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import EmptyState from '../../components/EmptyState';
+import MissedSessionCard from '../plan/MissedSessionCard';
 import ProgressionSuggestionCard from '../plan/ProgressionSuggestionCard';
+import { loadWeekSchedule, type WeekScheduleData } from '../plan/weekScheduleData';
 
 export interface DashboardScreenProps {
   client: GymSupabaseClient;
   userId: string;
   /** Change this (e.g. on screen focus) to reload everything; the screen itself has no navigation dependency. */
   refreshToken?: number;
-  onStartSession?: (plannedSessionId: string) => void;
+  onStartSession?: (plannedSessionId: string, mergedPlannedSessionId?: string) => void;
   onStartFreeform?: () => void;
   onLogFood?: () => void;
   onLogWeight?: () => void;
@@ -46,6 +50,10 @@ export interface DashboardScreenProps {
   onBrowseMuscles?: () => void;
   onCreatePlan?: () => void;
   onSetTargets?: () => void;
+  /** Opens the Plan tab (missed-session options). */
+  onOpenPlan?: () => void;
+  /** For tests: the current time. */
+  now?: Date;
 }
 
 type SuggestionStatus = 'pending' | 'accepted' | 'declined' | 'overridden';
@@ -59,6 +67,8 @@ interface DashboardData {
   weight: WeightChange | null;
   suggestions: (PendingProgressionSuggestion & { displayStatus: SuggestionStatus })[];
   unitPreference: UnitPreference;
+  /** FR-2.5: this week on the user's chosen days; null until they pick weekdays. */
+  week: WeekScheduleData | null;
 }
 
 const WEIGHT_CHANGE_DAYS = 7;
@@ -74,12 +84,12 @@ async function orNull<T>(promise: Promise<{ data: T | null; error: string | null
   }
 }
 
-async function loadDashboard(client: GymSupabaseClient, userId: string): Promise<DashboardData> {
+async function loadDashboard(client: GymSupabaseClient, userId: string, now: Date): Promise<DashboardData> {
   const [planRes, historyRes, targetsRes, foodRes, profileRes, records, weightEntries, suggestions] = await Promise.all([
     getCurrentPlan(client, userId),
     getWorkoutSessionHistory(client, userId),
     getCurrentNutritionTargets(client, userId),
-    getFoodLogEntriesForDate(client, userId, localDateString()),
+    getFoodLogEntriesForDate(client, userId, localDateString(now)),
     getProfile(client, userId),
     orNull(getPersonalRecordsForUser(client, userId)),
     orNull(getWeightEntries(client, userId)),
@@ -94,6 +104,22 @@ async function loadDashboard(client: GymSupabaseClient, userId: string): Promise
       ? records.reduce((a, b) => (Date.parse(a.achievedAt) > Date.parse(b.achievedAt) ? a : b))
       : null;
 
+  let week: WeekScheduleData | null = null;
+  if (planRes.data && profileRes.data) {
+    try {
+      week = await loadWeekSchedule({
+        client,
+        userId,
+        plan: planRes.data,
+        trainingWeekdays: profileRes.data.training_weekdays,
+        trainingDaysPerWeek: profileRes.data.training_days_per_week,
+        now,
+      });
+    } catch {
+      week = null;
+    }
+  }
+
   return {
     plan: planRes.data ?? null,
     sessions: (historyRes.data ?? []).map((entry) => entry.session),
@@ -103,6 +129,7 @@ async function loadDashboard(client: GymSupabaseClient, userId: string): Promise
     weight: weightEntries ? weightChange(weightEntries, WEIGHT_CHANGE_DAYS) : null,
     suggestions: (suggestions ?? []).map((s) => ({ ...s, displayStatus: 'pending' as const })),
     unitPreference: profileRes.data?.unit_preference ?? 'metric',
+    week,
   };
 }
 
@@ -166,6 +193,8 @@ export default function DashboardScreen({
   onBrowseMuscles,
   onCreatePlan,
   onSetTargets,
+  onOpenPlan,
+  now: nowProp,
 }: DashboardScreenProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -176,7 +205,7 @@ export default function DashboardScreen({
   const load = useCallback(async () => {
     const loadId = ++latestLoad.current;
     try {
-      const next = await loadDashboard(client, userId);
+      const next = await loadDashboard(client, userId, nowProp ?? new Date());
       if (loadId !== latestLoad.current) return;
       setData(next);
       setStatus('ready');
@@ -186,7 +215,7 @@ export default function DashboardScreen({
     } finally {
       if (loadId === latestLoad.current) setRefreshing(false);
     }
-  }, [client, userId]);
+  }, [client, userId, nowProp]);
 
   useEffect(() => {
     load();
@@ -242,16 +271,44 @@ export default function DashboardScreen({
 
   if (!data) return null;
 
-  const { plan, sessions, targets, totals, mostRecentPr, weight, suggestions, unitPreference } = data;
-  const now = new Date();
+  const { plan, sessions, targets, totals, mostRecentPr, weight, suggestions, unitPreference, week } = data;
+  const now = nowProp ?? new Date();
+
+  // FR-2.5: with chosen weekdays, "next" comes from this week's schedule
+  // (today's session, else the next one this week); without, it is the
+  // session after the last completed one.
+  const scheduled = week?.schedule ?? null;
+  const nextEntry = scheduled?.next ?? null;
   const lastCompletedPlanned = sessions.find((s) => s.status === 'completed' && s.plannedSessionId);
-  const nextSession = plan ? determineNextPlannedSessionAfter(plan.sessions, lastCompletedPlanned?.plannedSessionId ?? null) : null;
+  const nextSession = !plan
+    ? null
+    : scheduled
+      ? (plan.sessions.find((s) => s.id === nextEntry?.session.id) ?? null)
+      : determineNextPlannedSessionAfter(plan.sessions, lastCompletedPlanned?.plannedSessionId ?? null);
+  const mergedIntoNext = nextEntry?.mergedFrom[0] ?? null;
   const nextDayNumber =
     plan && nextSession ? [...plan.sessions].sort((a, b) => a.dayOrder - b.dayOrder).indexOf(nextSession) + 1 : 0;
-  const completedThisWeek = countCompletedSince(
-    sessions.filter((s) => s.status === 'completed').map((s) => s.completedAt),
-    startOfLocalWeek(now),
-  );
+  const nextDetail = (() => {
+    if (!plan || !nextSession) return '';
+    const count = `${nextSession.exercises.length} ${nextSession.exercises.length === 1 ? 'exercise' : 'exercises'}`;
+    if (!nextEntry) return `Day ${nextDayNumber} of ${plan.sessions.length} · ${count}`;
+    const when =
+      nextEntry.status === 'today'
+        ? 'Today'
+        : new Date(`${nextEntry.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long' });
+    return `${when} · ${count}${mergedIntoNext ? ` · plus ${mergedIntoNext.name}` : ''}`;
+  })();
+
+  const weekEntries = scheduled ? scheduled.days.flatMap((d) => d.entries) : [];
+  // One session per chosen weekday (merged sessions still count; they're done with their target).
+  const weekTotal = week ? Math.min(week.weekdays.length, plan?.sessions.length ?? 0) : (plan?.sessions.length ?? 0);
+  const completedThisWeek = scheduled
+    ? weekEntries.filter((e) => e.status === 'done').length
+    : countCompletedSince(
+        sessions.filter((s) => s.status === 'completed').map((s) => s.completedAt),
+        startOfLocalWeek(now),
+      );
+  const firstMissed = scheduled?.missed[0] ?? null;
   const shownSuggestions = suggestions.slice(0, MAX_SUGGESTION_CARDS);
   const hiddenSuggestionCount = suggestions.length - shownSuggestions.length;
 
@@ -285,16 +342,26 @@ export default function DashboardScreen({
             {nextSession.name}
           </Text>
           <Text testID="dashboard-next-session-detail" style={styles.primaryCardDetail}>
-            {`Day ${nextDayNumber} of ${plan.sessions.length} · ${nextSession.exercises.length} ${nextSession.exercises.length === 1 ? 'exercise' : 'exercises'}`}
+            {nextDetail}
           </Text>
           <Pressable
             testID="dashboard-start-session"
             style={[styles.button, styles.primaryButton]}
-            onPress={() => onStartSession?.(nextSession.id)}
+            onPress={() => (mergedIntoNext ? onStartSession?.(nextSession.id, mergedIntoNext.id) : onStartSession?.(nextSession.id))}
             accessibilityRole="button"
           >
             <Text style={[styles.buttonText, styles.primaryButtonText]}>Start session</Text>
           </Pressable>
+        </View>
+      ) : plan && scheduled ? (
+        <View testID="dashboard-week-complete" style={[styles.card, styles.primaryCard]}>
+          <Text style={[styles.cardTitle, styles.primaryCardTitle]}>Next session</Text>
+          <Text style={styles.primaryCardHeadline}>
+            {firstMissed ? 'Nothing left on your schedule this week' : 'Week complete'}
+          </Text>
+          <Text style={styles.primaryCardDetail}>
+            {firstMissed ? 'You can still catch up on a missed session below.' : 'Rest up. Your next week starts on Monday.'}
+          </Text>
         </View>
       ) : (
         <View style={styles.card}>
@@ -308,17 +375,48 @@ export default function DashboardScreen({
         </View>
       )}
 
+      {firstMissed && scheduled && week ? (
+        <MissedSessionCard
+          variant="compact"
+          missed={firstMissed}
+          options={suggestMissedSessionOptions({ schedule: scheduled, missed: firstMissed, today: week.today })}
+          onSeeOptions={onOpenPlan}
+        />
+      ) : null}
+
       {plan && plan.sessions.length > 0 ? (
         <View testID="dashboard-week" style={styles.card}>
           <Text style={styles.cardTitle}>This week</Text>
           <Text testID="dashboard-week-count" style={styles.cardHeadline}>
-            {`${completedThisWeek} of ${plan.sessions.length} sessions`}
+            {`${completedThisWeek} of ${weekTotal} sessions`}
           </Text>
-          <View style={styles.weekDots}>
-            {plan.sessions.map((s, index) => (
-              <View key={s.id} style={[styles.weekDot, index < completedThisWeek && styles.weekDotDone]} />
-            ))}
-          </View>
+          {scheduled ? (
+            // One dot per weekday: filled when done, outlined red when missed, faint on rest days.
+            <View style={styles.weekDays}>
+              {scheduled.days.map((day) => {
+                const entry = day.entries[0];
+                const dotStyle = !entry
+                  ? styles.weekDayRest
+                  : entry.status === 'done'
+                    ? styles.weekDotDone
+                    : entry.status === 'missed'
+                      ? styles.weekDotMissed
+                      : null;
+                return (
+                  <View key={day.date} style={styles.weekDayCol} testID={`dashboard-week-day-${day.date}`}>
+                    <View style={[styles.weekDot, dotStyle, day.date === week?.today && styles.weekDotToday]} />
+                    <Text style={styles.weekDayLabel}>{WEEKDAY_SHORT[day.weekday].charAt(0)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.weekDots}>
+              {plan.sessions.map((s, index) => (
+                <View key={s.id} style={[styles.weekDot, index < completedThisWeek && styles.weekDotDone]} />
+              ))}
+            </View>
+          )}
         </View>
       ) : null}
 
@@ -456,6 +554,12 @@ const styles = StyleSheet.create({
   weekDots: { flexDirection: 'row', gap: 6, marginTop: 4 },
   weekDot: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#ddd' },
   weekDotDone: { backgroundColor: '#2e7d32' },
+  weekDotMissed: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#b00020' },
+  weekDotToday: { borderWidth: 2, borderColor: '#111' },
+  weekDays: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  weekDayCol: { alignItems: 'center', gap: 4 },
+  weekDayRest: { backgroundColor: '#f0f0f0' },
+  weekDayLabel: { fontSize: 11, color: '#777' },
   macroRow: { marginTop: 8 },
   macroLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   macroLabel: { fontSize: 13, color: '#333', fontWeight: '600' },

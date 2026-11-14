@@ -2,12 +2,12 @@ import type { FitnessLevel } from '../../validation/profileValidation';
 import { getExercisesPerSession, SESSION_COMPOSITION_RULES } from './sessionComposition';
 import type { SplitType } from './splitRules';
 
-const SPLITS: SplitType[] = ['full_body', 'upper_lower', 'push_pull_legs'];
+const SPLITS: SplitType[] = ['full_body', 'upper_lower', 'push_pull_legs', 'custom'];
 const LEVELS: FitnessLevel[] = ['beginner', 'intermediate', 'advanced'];
 
 describe('getExercisesPerSession (FR-2.3)', () => {
-  test('SESSION_COMPOSITION_RULES is exhaustive (3 splits x 3 levels)', () => {
-    expect(SESSION_COMPOSITION_RULES).toHaveLength(9);
+  test('SESSION_COMPOSITION_RULES is exhaustive (4 splits incl. FR-2.7 custom x 3 levels)', () => {
+    expect(SESSION_COMPOSITION_RULES).toHaveLength(12);
   });
 
   test.each(SPLITS.flatMap((splitType) => LEVELS.map((fitnessLevel) => [splitType, fitnessLevel] as const)))(
