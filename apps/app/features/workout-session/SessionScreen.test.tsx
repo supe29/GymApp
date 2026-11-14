@@ -26,6 +26,7 @@ jest.mock('api-client', () => ({
 const mockEnqueue = jest.fn();
 const mockRetryNow = jest.fn();
 const mockDiscard = jest.fn();
+const mockRemove = jest.fn();
 
 jest.mock('./offlineQueue', () => {
   let idCounter = 0;
@@ -35,6 +36,7 @@ jest.mock('./offlineQueue', () => {
       enqueue: mockEnqueue,
       retryNow: mockRetryNow,
       discard: mockDiscard,
+      remove: mockRemove,
       getAll: jest.fn().mockResolvedValue([]),
       teardown: jest.fn(),
     })),
@@ -110,6 +112,36 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     expect(mockedApiClient.startWorkoutSession).toHaveBeenCalledWith(fakeClient, 'user-1', 'planned-1');
     expect(getByTestId('set-logger-ex-1')).toBeTruthy();
     expect(getByTestId('set-logger-ex-2')).toBeTruthy();
+  });
+
+  test('FR-5.1: a wrongly logged set can be deleted, and the next set keeps a fresh index', async () => {
+    mockRemove.mockResolvedValue({ error: null });
+    const { getByTestId, queryByTestId } = await renderLoaded();
+
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-2-delete'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-2-delete-confirm'));
+
+    await waitFor(() => expect(queryByTestId('set-logger-ex-1-set-2')).toBeNull());
+    const deletedId = mockEnqueue.mock.calls[1][0].id;
+    expect(mockRemove).toHaveBeenCalledWith(deletedId);
+
+    // The unique (session, exercise, set_index) constraint means indexes are never reused.
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+    expect(mockEnqueue.mock.calls[2][0].setIndex).toBe(3);
+  });
+
+  test('FR-5.1: a failed delete brings the set back with an error', async () => {
+    mockRemove.mockResolvedValue({ error: 'network error' });
+    const { getByTestId } = await renderLoaded();
+
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-1-delete'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-1-delete-confirm'));
+
+    await waitFor(() => expect(getByTestId('session-screen-error')).toBeTruthy());
+    expect(getByTestId('set-logger-ex-1-set-1')).toBeTruthy();
   });
 
   test('FR-5.3: skipping an exercise hides its logger and shows a skipped marker', async () => {

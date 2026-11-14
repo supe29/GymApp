@@ -1,5 +1,6 @@
 import {
   completeWorkoutSession,
+  deleteSetLog,
   getCompletedSessionsInRange,
   getSetLogsForExercises,
   getSetLogsForSession,
@@ -112,6 +113,29 @@ describe('logSet (FR-5.1/NFR-3)', () => {
     expect(first.error).toBeNull();
     expect(retry.error).toBeNull();
     expect(retry.data?.id).toBe(first.data?.id);
+  });
+});
+
+describe('deleteSetLog (FR-5.1)', () => {
+  test('deletes the set row scoped to the owning user', async () => {
+    const { client, from } = createMockClient();
+    const builder = createQueryBuilderMock({ data: null, error: null });
+    from.mockReturnValueOnce(builder);
+
+    const result = await deleteSetLog(client, 'user-1', 'set-1');
+
+    expect(from).toHaveBeenCalledWith('set_logs');
+    expect(builder.delete).toHaveBeenCalled();
+    expect(builder.eq).toHaveBeenCalledWith('id', 'set-1');
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(result).toEqual({ data: null, error: null });
+  });
+
+  test('passes errors through', async () => {
+    const { client, from } = createMockClient();
+    from.mockReturnValueOnce(createQueryBuilderMock({ data: null, error: { message: 'boom' } }));
+
+    expect(await deleteSetLog(client, 'user-1', 'set-1')).toEqual({ data: null, error: 'boom' });
   });
 });
 

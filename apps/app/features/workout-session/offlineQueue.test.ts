@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logSet } from 'api-client';
+import { deleteSetLog, logSet } from 'api-client';
 import { AppState } from 'react-native';
 
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
 
 jest.mock('api-client', () => ({
   logSet: jest.fn(),
+  deleteSetLog: jest.fn(),
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => {
@@ -32,6 +33,7 @@ jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) =
 });
 
 const mockedLogSet = logSet as jest.MockedFunction<typeof logSet>;
+const mockedDeleteSetLog = deleteSetLog as jest.MockedFunction<typeof deleteSetLog>;
 const fakeClient = {} as never;
 
 const basePayload = {
@@ -196,6 +198,52 @@ describe('offlineQueue (FR-5.1/NFR-3, resolves OQ-11)', () => {
     mockedLogSet.mockResolvedValueOnce({ data: fakePersistedSetLog(id), error: null });
     await queue.retryNow(id);
 
+    expect(await queue.getAll()).toEqual([]);
+  });
+
+  test('remove deletes a synced set on the server', async () => {
+    const id = generateLocalId();
+    mockedLogSet.mockResolvedValue({ data: fakePersistedSetLog(id), error: null });
+    mockedDeleteSetLog.mockResolvedValue({ data: null, error: null });
+    queue = createOfflineQueue(fakeClient, 'user-1');
+    await queue.enqueue({ id, ...basePayload });
+
+    expect(await queue.remove(id)).toEqual({ error: null });
+    expect(mockedDeleteSetLog).toHaveBeenCalledWith(fakeClient, 'user-1', id);
+  });
+
+  test('remove drops an unsynced set from the queue so it never syncs later', async () => {
+    const id = generateLocalId();
+    mockedLogSet.mockResolvedValue({ data: null, error: 'network error' });
+    mockedDeleteSetLog.mockResolvedValue({ data: null, error: null });
+    queue = createOfflineQueue(fakeClient, 'user-1');
+    await queue.enqueue({ id, ...basePayload });
+
+    await queue.remove(id);
+
+    expect(await queue.getAll()).toEqual([]);
+    mockedLogSet.mockClear();
+    jest.advanceTimersByTime(120000);
+    await flushAsync();
+    expect(mockedLogSet).not.toHaveBeenCalled();
+  });
+
+  test('remove during an in-flight sync deletes again once the upsert lands', async () => {
+    const id = generateLocalId();
+    let resolveSync: (value: Awaited<ReturnType<typeof logSet>>) => void = () => {};
+    mockedLogSet.mockReturnValueOnce(new Promise((resolve) => { resolveSync = resolve; }));
+    mockedDeleteSetLog.mockResolvedValue({ data: null, error: null });
+    queue = createOfflineQueue(fakeClient, 'user-1');
+    const enqueued = queue.enqueue({ id, ...basePayload });
+    await flushAsync();
+
+    await queue.remove(id);
+    expect(mockedDeleteSetLog).toHaveBeenCalledTimes(1);
+
+    resolveSync({ data: fakePersistedSetLog(id), error: null });
+    await enqueued;
+
+    expect(mockedDeleteSetLog).toHaveBeenCalledTimes(2);
     expect(await queue.getAll()).toEqual([]);
   });
 });

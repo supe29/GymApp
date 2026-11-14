@@ -18,6 +18,36 @@ describe('SetLogger (FR-5.1/UX-4)', () => {
     expect(getByTestId('set-logger-ex-1-set-2-status').props.children).toBe('Pending sync…');
   });
 
+  test('FR-5.1: a logged set can be deleted after an inline confirm, and cancel keeps it', () => {
+    const loggedSets: LoggedSetDisplay[] = [
+      { id: 's1', setIndex: 1, weightKg: 50, reps: 10, rpe: null, syncStatus: 'synced' },
+    ];
+    const onDeleteSet = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      <SetLogger exerciseId="ex-1" exerciseName="Squat" loggedSets={loggedSets} onLogSet={jest.fn()} onDeleteSet={onDeleteSet} />,
+    );
+
+    fireEvent.press(getByTestId('set-logger-ex-1-set-1-delete'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-1-delete-cancel'));
+    expect(onDeleteSet).not.toHaveBeenCalled();
+    expect(queryByTestId('set-logger-ex-1-set-1-delete-confirm')).toBeNull();
+
+    fireEvent.press(getByTestId('set-logger-ex-1-set-1-delete'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-1-delete-confirm'));
+    expect(onDeleteSet).toHaveBeenCalledWith('s1');
+  });
+
+  test('sets are numbered by position, so a deleted set leaves no gap', () => {
+    const loggedSets: LoggedSetDisplay[] = [
+      { id: 's1', setIndex: 1, weightKg: 50, reps: 10, rpe: null, syncStatus: 'synced' },
+      { id: 's3', setIndex: 3, weightKg: 50, reps: 8, rpe: null, syncStatus: 'synced' },
+    ];
+    const { getByText } = render(
+      <SetLogger exerciseId="ex-1" exerciseName="Squat" loggedSets={loggedSets} onLogSet={jest.fn()} />,
+    );
+    expect(getByText(/Set 2: 50kg × 8/)).toBeTruthy();
+  });
+
   test('UX-4: weight/reps/RPE are adjusted via +/- steppers', () => {
     const { getByTestId } = render(
       <SetLogger exerciseId="ex-1" exerciseName="Squat" loggedSets={[]} onLogSet={jest.fn()} />,
@@ -166,6 +196,49 @@ describe('SetLogger rest between sets (FR-5.4)', () => {
     expect(getByTestId('set-logger-ex-1-rest-remaining').props.children).toBe('0:10');
     fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
     act(() => jest.advanceTimersByTime(1_000));
+    expect(getByTestId('set-logger-ex-1-rest-remaining').props.children).toBe('1:29');
+  });
+
+  test('deleting the only logged set removes the rest timer', () => {
+    const props = { exerciseId: 'ex-1', exerciseName: 'Curl', onLogSet: jest.fn(), onDeleteSet: jest.fn(), rest, target };
+    const { getByTestId, queryByTestId, rerender } = render(<SetLogger {...props} loggedSets={[]} />);
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+    rerender(<SetLogger {...props} loggedSets={[set(1)]} />);
+    expect(getByTestId('set-logger-ex-1-rest-countdown')).toBeTruthy();
+
+    fireEvent.press(getByTestId('set-logger-ex-1-set-1-delete'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-1-delete-confirm'));
+    rerender(<SetLogger {...props} loggedSets={[]} />);
+
+    expect(queryByTestId('set-logger-ex-1-rest-countdown')).toBeNull();
+    expect(queryByTestId('set-logger-ex-1-rest-over')).toBeNull();
+  });
+
+  test('deleting a later set restarts the rest timer from the full duration', () => {
+    const props = { exerciseId: 'ex-1', exerciseName: 'Curl', onLogSet: jest.fn(), onDeleteSet: jest.fn(), rest, target };
+    const { getByTestId, rerender } = render(<SetLogger {...props} loggedSets={[set(1)]} />);
+    fireEvent.press(getByTestId('set-logger-ex-1-log-button'));
+    rerender(<SetLogger {...props} loggedSets={[set(1), set(2)]} />);
+    act(() => jest.advanceTimersByTime(60_000));
+    expect(getByTestId('set-logger-ex-1-rest-remaining').props.children).toBe('0:30');
+
+    fireEvent.press(getByTestId('set-logger-ex-1-set-2-delete'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-2-delete-confirm'));
+    rerender(<SetLogger {...props} loggedSets={[set(1)]} />);
+    act(() => jest.advanceTimersByTime(1_000));
+
+    expect(getByTestId('set-logger-ex-1-rest-remaining').props.children).toBe('1:29');
+  });
+
+  test('deleting a set after all prescribed sets were done brings the rest timer back', () => {
+    const props = { exerciseId: 'ex-1', exerciseName: 'Curl', onLogSet: jest.fn(), onDeleteSet: jest.fn(), rest, target };
+    const { getByTestId, rerender } = render(<SetLogger {...props} loggedSets={[set(1), set(2), set(3)]} />);
+
+    fireEvent.press(getByTestId('set-logger-ex-1-set-3-delete'));
+    fireEvent.press(getByTestId('set-logger-ex-1-set-3-delete-confirm'));
+    rerender(<SetLogger {...props} loggedSets={[set(1), set(2)]} />);
+    act(() => jest.advanceTimersByTime(1_000));
+
     expect(getByTestId('set-logger-ex-1-rest-remaining').props.children).toBe('1:29');
   });
 

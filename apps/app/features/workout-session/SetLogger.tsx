@@ -21,6 +21,8 @@ export interface SetLoggerProps {
   loggedSets: LoggedSetDisplay[];
   onLogSet: (input: { weightKg: number | null; reps: number | null; rpe: number | null }) => void;
   onRetrySet?: (id: string) => void;
+  /** FR-5.1: deletes a set logged by mistake (after an inline confirm). */
+  onDeleteSet?: (id: string) => void;
   /** The plan's prescription for this exercise, when there is one (plan-attached sessions). */
   target?: SetTarget;
   /** The user's most recent set of this exercise from an earlier session. */
@@ -98,11 +100,13 @@ export default function SetLogger({
   loggedSets,
   onLogSet,
   onRetrySet,
+  onDeleteSet,
   target,
   previousSet,
   headerAccessory,
   rest,
 }: SetLoggerProps) {
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   // Pre-filled from the prescription (else last time's weight) so a
   // typical set is just "Log set"; values persist after logging, so
   // repeat sets need no re-entry.
@@ -121,6 +125,13 @@ export default function SetLogger({
     // No rest to count once the prescribed sets are all done.
     const finished = target ? setsLogged + 1 >= target.sets : false;
     setRestEndsAt(rest && !finished ? Date.now() + rest.seconds * 1000 : null);
+  }
+
+  // After a delete: with no sets left there is nothing to rest from, so the
+  // timer goes; otherwise the rest restarts from the full duration.
+  function handleRestAfterDelete() {
+    const remaining = setsLogged - 1;
+    setRestEndsAt(rest && remaining > 0 ? Date.now() + rest.seconds * 1000 : null);
   }
 
   return (
@@ -161,10 +172,11 @@ export default function SetLogger({
       ) : null}
       {headerAccessory}
 
-      {loggedSets.map((set) => (
+      {loggedSets.map((set, position) => (
         <View key={set.id} testID={`set-logger-${exerciseId}-set-${set.setIndex}`} style={styles.loggedRow}>
+          {/* Numbered by position, so deleting a set leaves no gap (set_index stays unique in the DB). */}
           <Text style={styles.loggedText}>
-            Set {set.setIndex}: {set.weightKg ?? '-'}kg × {set.reps ?? '-'}
+            Set {position + 1}: {set.weightKg ?? '-'}kg × {set.reps ?? '-'}
             {set.rpe != null ? ` @RPE ${set.rpe}` : ''}
           </Text>
           <Text
@@ -178,10 +190,48 @@ export default function SetLogger({
               testID={`set-logger-${exerciseId}-set-${set.setIndex}-retry`}
               onPress={() => onRetrySet(set.id)}
               accessibilityRole="button"
-              accessibilityLabel={`Retry syncing set ${set.setIndex}`}
+              accessibilityLabel={`Retry syncing set ${position + 1}`}
             >
               <Text style={styles.retryText}>Retry</Text>
             </Pressable>
+          ) : null}
+          {onDeleteSet ? (
+            confirmingDeleteId === set.id ? (
+              <View style={styles.deleteConfirmRow}>
+                <Pressable
+                  testID={`set-logger-${exerciseId}-set-${set.setIndex}-delete-confirm`}
+                  onPress={() => {
+                    setConfirmingDeleteId(null);
+                    onDeleteSet(set.id);
+                    handleRestAfterDelete();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Confirm delete set ${position + 1}`}
+                  hitSlop={8}
+                >
+                  <Text style={styles.deleteText}>Delete set</Text>
+                </Pressable>
+                <Pressable
+                  testID={`set-logger-${exerciseId}-set-${set.setIndex}-delete-cancel`}
+                  onPress={() => setConfirmingDeleteId(null)}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                >
+                  <Text style={styles.retryText}>Cancel</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                testID={`set-logger-${exerciseId}-set-${set.setIndex}-delete`}
+                onPress={() => setConfirmingDeleteId(set.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Delete set ${position + 1} of ${exerciseName}`}
+                hitSlop={8}
+                style={styles.deleteButton}
+              >
+                <Text style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            )
           ) : null}
         </View>
       ))}
@@ -254,6 +304,9 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, color: '#666' },
   statusFailed: { color: '#b00020', fontWeight: '600' },
   retryText: { fontSize: 12, color: '#111', fontWeight: '600', textDecorationLine: 'underline' },
+  deleteButton: { marginLeft: 'auto' },
+  deleteConfirmRow: { flexDirection: 'row', gap: 12, marginLeft: 'auto' },
+  deleteText: { fontSize: 12, color: '#b00020', fontWeight: '600', textDecorationLine: 'underline' },
   stepperRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
   stepperLabel: { fontSize: 14, fontWeight: '600' },
   logButton: {
