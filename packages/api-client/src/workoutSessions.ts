@@ -214,8 +214,69 @@ export async function getWorkoutSessionHistory(
   if (sessionsError) {
     return result<WorkoutSessionHistoryEntry[]>(null, sessionsError);
   }
+  return attachSetLogs(client, sessionRows ?? []);
+}
 
-  const sessions = sessionRows ?? [];
+/**
+ * FR-8.5: every session the user started in [startIso, endIso) — one local
+ * day for the Body progress screen — with its set logs and exercise names.
+ */
+export async function getWorkoutSessionsForDay(
+  client: GymSupabaseClient,
+  userId: string,
+  startIso: string,
+  endIso: string,
+): Promise<ApiResult<WorkoutSessionHistoryEntry[]>> {
+  const { data: sessionRows, error: sessionsError } = await client
+    .from('workout_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('started_at', startIso)
+    .lt('started_at', endIso)
+    .order('started_at', { ascending: true });
+  if (sessionsError) {
+    return result<WorkoutSessionHistoryEntry[]>(null, sessionsError);
+  }
+  return attachSetLogs(client, sessionRows ?? []);
+}
+
+export interface CompletedSessionInRange {
+  plannedSessionId: string | null;
+  completedAt: string;
+}
+
+/**
+ * FR-2.8: every session the user completed in [startIso, endIso), without
+ * set logs — enough for the week/month plan views to mark sessions done.
+ * Bounded by date rather than by the most recent N sessions, so older
+ * weeks keep their done status.
+ */
+export async function getCompletedSessionsInRange(
+  client: GymSupabaseClient,
+  userId: string,
+  startIso: string,
+  endIso: string,
+): Promise<ApiResult<CompletedSessionInRange[]>> {
+  const { data, error } = await client
+    .from('workout_sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .gte('completed_at', startIso)
+    .lt('completed_at', endIso);
+  if (error) return result<CompletedSessionInRange[]>(null, error);
+  return {
+    data: (data ?? [])
+      .filter((row) => row.completed_at)
+      .map((row) => ({ plannedSessionId: row.planned_session_id, completedAt: row.completed_at as string })),
+    error: null,
+  };
+}
+
+async function attachSetLogs(
+  client: GymSupabaseClient,
+  sessions: WorkoutSessionRow[],
+): Promise<ApiResult<WorkoutSessionHistoryEntry[]>> {
   const sessionIds = sessions.map((s) => s.id);
   if (sessionIds.length === 0) {
     return { data: [], error: null };

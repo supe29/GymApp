@@ -1,9 +1,9 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, type NavigationProp, type ParamListBase } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { GymSupabaseClient } from 'api-client';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import TabIcon, { type TabIconName } from '../components/TabIcon';
 import DashboardScreen from '../features/dashboard/DashboardScreen';
@@ -13,6 +13,7 @@ import DiaryScreen from '../features/nutrition/DiaryScreen';
 import NutritionTargetsScreen from '../features/plan/NutritionTargetsScreen';
 import WorkoutPlanScreen from '../features/plan/WorkoutPlanScreen';
 import EditProfileScreen from '../features/profile/EditProfileScreen';
+import BodyProgressScreen from '../features/progress/BodyProgressScreen';
 import PersonalRecordsScreen from '../features/progress/PersonalRecordsScreen';
 import WeightTrendScreen from '../features/progress/WeightTrendScreen';
 import { getSupabaseClient } from '../lib/supabaseClient';
@@ -75,6 +76,9 @@ function FocusRefreshingDashboard({
   );
 
   const goToTab = (tab: string) => navigation.getParent()?.navigate(tab as never);
+  // Body progress is the Progress tab's first screen (FR-8.5), so weight links name their screen.
+  const goToWeightTrend = () =>
+    (navigation.getParent() as NavigationProp<ParamListBase> | undefined)?.navigate('Progress', { screen: 'WeightTrend' });
 
   return (
     <DashboardScreen
@@ -84,8 +88,8 @@ function FocusRefreshingDashboard({
       onStartSession={(plannedSessionId) => navigation.navigate('Session', { plannedSessionId })}
       onStartFreeform={() => navigation.navigate('FreeformSession')}
       onLogFood={() => goToTab('Nutrition')}
-      onLogWeight={() => goToTab('Progress')}
-      onViewWeight={() => goToTab('Progress')}
+      onLogWeight={() => goToWeightTrend()}
+      onViewWeight={() => goToWeightTrend()}
       onViewHistory={() => navigation.navigate('History')}
       onBrowseMuscles={() => navigation.navigate('MuscleExplorer')}
       onCreatePlan={() => goToTab('Plan')}
@@ -155,14 +159,45 @@ function NutritionStackNavigator({ client, userId }: { client: GymSupabaseClient
 }
 
 type ProgressStackParamList = {
+  BodyProgress: undefined;
   WeightTrend: undefined;
   PersonalRecords: undefined;
 };
 const ProgressStack = createNativeStackNavigator<ProgressStackParamList>();
 
+/** FR-8.5: reloads Body progress whenever the tab regains focus (e.g. after finishing a workout). */
+function FocusRefreshingBodyProgress({ client, userId }: { client: GymSupabaseClient; userId: string }) {
+  const [refreshToken, setRefreshToken] = useState(0);
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      setRefreshToken((token) => token + 1);
+    }, []),
+  );
+  return <BodyProgressScreen client={client} userId={userId} refreshToken={refreshToken} />;
+}
+
 function ProgressStackNavigator({ client, userId }: { client: GymSupabaseClient; userId: string }) {
   return (
     <ProgressStack.Navigator>
+      <ProgressStack.Screen
+        name="BodyProgress"
+        options={({ navigation }) => ({
+          title: 'Body progress',
+          headerRight: () => (
+            <View style={{ flexDirection: 'row' }}>
+              <HeaderLinkButton label="Weight" onPress={() => navigation.navigate('WeightTrend')} />
+              <HeaderLinkButton label="Records" onPress={() => navigation.navigate('PersonalRecords')} />
+            </View>
+          ),
+        })}
+      >
+        {() => <FocusRefreshingBodyProgress client={client} userId={userId} />}
+      </ProgressStack.Screen>
       <ProgressStack.Screen
         name="WeightTrend"
         options={({ navigation }) => ({

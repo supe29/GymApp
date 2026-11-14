@@ -38,6 +38,8 @@ import {
   type InteractionState,
 } from '../../interactionContract';
 import { MUSCLE_REGION_IDS } from '../../muscleRegions';
+import { regionHeatmapTint } from '../../heatmap';
+import { facingShares, isFacingCamera, layoutRegionLabels, type LabelCandidate } from '../../regionLabels';
 import { pulseOpacity, regionPulsePeakOpacity } from '../../pulseAnimation';
 
 /**
@@ -190,6 +192,51 @@ describe('Cross-renderer parity: per-exercise region pulse', () => {
         const combine = () => Math.max(selected ? 0.35 : 0, peak > 0 ? pulseOpacity(t, peak) : 0);
         expect(combine()).toBe(combine());
       }
+    }
+  });
+});
+
+// FR-8.5: the Body progress heatmap (BodyModelProps.regionIntensity ->
+// shared/BodyModelScene.tsx). Like the pulse above, it bypasses
+// interactionReducer; parity comes from regionHeatmapTint being pure and
+// called from the one scene file both adapters render.
+describe('Cross-renderer parity: Body progress heatmap', () => {
+  const regionIntensity = { chest: 0.75, triceps: 1, shoulders: 0.2, biceps: 1.4, calves: 0 };
+
+  test('regionHeatmapTint resolves every region identically across two independent runs', () => {
+    for (const regionId of MUSCLE_REGION_IDS) {
+      expect(regionHeatmapTint(regionId, { ...regionIntensity })).toBe(regionHeatmapTint(regionId, regionIntensity));
+    }
+  });
+});
+
+// FR-8.5: the on-model numbers (BodyModelProps.regionLabels). The anchor
+// projection runs in the one shared scene file both adapters render, and
+// the facing/overlap layout is the pure regionLabels module, so the same
+// camera gives the same labels on both renderers.
+describe('Cross-renderer parity: Body progress labels', () => {
+  const anchors = { chest: { x: 0.1, y: 1.4, z: 0.12 }, glutes: { x: 0.08, y: 0.95, z: -0.1 }, biceps: { x: 0.25, y: 1.2, z: 0.03 } };
+  const cameras = [
+    { x: 0, y: 1, z: 3 },
+    { x: 0, y: 1, z: -3 },
+    { x: 2, y: 1.5, z: 2 },
+  ];
+
+  test('layoutRegionLabels resolves identically across two independent runs for every scripted camera', () => {
+    for (const camera of cameras) {
+      const candidates: LabelCandidate[] = Object.entries(anchors).map(([regionId, a], i) => ({
+        regionId,
+        text: `${regionId} ${i * 30}%`,
+        anchors: [1, -1].map((mirror) => ({
+          x: 160 + mirror * a.x * 200,
+          y: 300 - a.y * 150,
+          facing: isFacingCamera(facingShares([a.x, a.y, a.z], { x: a.x, z: 0 }), { ...a, x: a.x * mirror }, camera, mirror < 0),
+        })),
+      }));
+      const viewport = { width: 320, height: 360 };
+      expect(layoutRegionLabels(candidates.map((c) => ({ ...c })), viewport, 'biceps')).toEqual(
+        layoutRegionLabels(candidates, viewport, 'biceps'),
+      );
     }
   });
 });

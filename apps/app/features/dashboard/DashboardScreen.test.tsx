@@ -14,6 +14,7 @@ jest.mock('api-client', () => ({
   getPendingProgressionSuggestions: jest.fn(),
   updateProgressionSuggestionStatus: jest.fn(),
   getScheduleAdjustments: jest.fn(() => Promise.resolve({ data: [], error: null })),
+  getCompletedSessionsInRange: jest.fn(() => Promise.resolve({ data: [], error: null })),
 }));
 
 const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
@@ -405,6 +406,7 @@ describe('DashboardScreen (UX-3/UX-6/UX-9)', () => {
         data: { unit_preference: 'metric', training_days_per_week: 2, training_weekdays: [1, 3] } as never,
         error: null,
       });
+      mockedApiClient.getCompletedSessionsInRange.mockResolvedValue({ data: completed, error: null });
       mockedApiClient.getWorkoutSessionHistory.mockResolvedValue({
         data: completed.map((c, i) => completedSession(`ws${i}`, c.plannedSessionId, c.completedAt)),
         error: null,

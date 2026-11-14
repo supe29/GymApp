@@ -1,19 +1,28 @@
 import {
   createScheduleAdjustment,
   deleteScheduleAdjustment,
+  getCompletedSessionsInRange,
   getScheduleAdjustments,
-  getWorkoutSessionHistory,
+  getScheduleAdjustmentsInRange,
   type GymSupabaseClient,
   type PersistedPlan,
   type PersistedScheduleAdjustment,
 } from 'api-client';
 import {
+  addDays,
+  buildMonthSchedule,
   buildWeekSchedule,
   localDateString,
+  monthGridWeeks,
+  planStartDate,
+  shiftMonth,
   startOfLocalWeek,
+  trimScheduleBefore,
   validWeekdays,
   type MissedOption,
+  type MonthSchedule,
   type ScheduleEntry,
+  type ScheduleSession,
   type WeekSchedule,
   type Weekday,
 } from 'core';
@@ -42,11 +51,34 @@ export function weekStartFor(now: Date, weekOffset = 0): string {
   return localDateString(monday);
 }
 
+/** FR-2.8: how many weeks the week containing `date` (YYYY-MM-DD) is from the one containing `now`. */
+export function weekOffsetFor(now: Date, date: string): number {
+  const [y, m, d] = date.split('-').map(Number);
+  const target = startOfLocalWeek(new Date(y, m - 1, d));
+  return Math.round((target.getTime() - startOfLocalWeek(now).getTime()) / (7 * 24 * 60 * 60 * 1000));
+}
+
+/** Local midnight at the start of a YYYY-MM-DD date, as an ISO timestamp. */
+function startOfDayIso(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d).toISOString();
+}
+
+function scheduleSessions(plan: PersistedPlan): ScheduleSession[] {
+  return plan.sessions.map((s) => ({
+    id: s.id,
+    dayOrder: s.dayOrder,
+    name: s.name,
+    exerciseIds: s.exercises.map((ex) => ex.exerciseId),
+  }));
+}
+
 /**
- * FR-2.5: this (or a later) week's schedule for the current plan, or null
- * when the user hasn't picked valid training weekdays yet. History and
- * adjustment lookups that fail leave the schedule without them rather
- * than failing it.
+ * FR-2.5/FR-2.8: the schedule for the week `weekOffset` weeks from this one
+ * (negative for past weeks) for the current plan, or null when the user
+ * hasn't picked valid training weekdays yet. Days before the plan took
+ * effect are left empty (DR-5). History and adjustment lookups that fail
+ * leave the schedule without them rather than failing it.
  */
 export async function loadWeekSchedule(args: {
   client: GymSupabaseClient;
@@ -62,29 +94,64 @@ export async function loadWeekSchedule(args: {
 
   const now = args.now ?? new Date();
   const weekStart = weekStartFor(now, args.weekOffset ?? 0);
-  const [history, adjustments] = await Promise.all([
-    safe(() => getWorkoutSessionHistory(args.client, args.userId)),
+  const [completed, adjustments] = await Promise.all([
+    safe(() => getCompletedSessionsInRange(args.client, args.userId, startOfDayIso(weekStart), startOfDayIso(addDays(weekStart, 7)))),
     safe(() => getScheduleAdjustments(args.client, args.userId, args.plan.id, weekStart)),
   ]);
 
   const today = localDateString(now);
-  const schedule = buildWeekSchedule({
-    sessions: args.plan.sessions.map((s) => ({
-      id: s.id,
-      dayOrder: s.dayOrder,
-      name: s.name,
-      exerciseIds: s.exercises.map((ex) => ex.exerciseId),
-    })),
-    weekdays,
-    weekStart,
-    today,
-    completed: (history ?? [])
-      .filter((entry) => entry.session.status === 'completed' && entry.session.completedAt)
-      .map((entry) => ({ plannedSessionId: entry.session.plannedSessionId, completedAt: entry.session.completedAt as string })),
-    adjustments: adjustments ?? [],
-  });
+  const schedule = trimScheduleBefore(
+    buildWeekSchedule({
+      sessions: scheduleSessions(args.plan),
+      weekdays,
+      weekStart,
+      today,
+      completed: completed ?? [],
+      adjustments: adjustments ?? [],
+    }),
+    planStartDate(args.plan.effectiveFrom),
+  );
 
   return { schedule, adjustments: adjustments ?? [], weekdays, weekStart, today };
+}
+
+/**
+ * FR-2.8: the month `monthOffset` months from this one as a calendar of
+ * the current plan, or null when the user hasn't picked valid training
+ * weekdays yet. Failed lookups degrade as in loadWeekSchedule.
+ */
+export async function loadMonthSchedule(args: {
+  client: GymSupabaseClient;
+  userId: string;
+  plan: PersistedPlan;
+  trainingWeekdays: readonly number[] | null | undefined;
+  trainingDaysPerWeek: number;
+  now?: Date;
+  monthOffset?: number;
+}): Promise<MonthSchedule | null> {
+  const weekdays = validWeekdays(args.trainingWeekdays, args.trainingDaysPerWeek);
+  if (!weekdays) return null;
+
+  const now = args.now ?? new Date();
+  const { year, month } = shiftMonth(now.getFullYear(), now.getMonth() + 1, args.monthOffset ?? 0);
+  const weeks = monthGridWeeks(year, month);
+  const first = weeks[0];
+  const last = weeks[weeks.length - 1];
+  const [completed, adjustments] = await Promise.all([
+    safe(() => getCompletedSessionsInRange(args.client, args.userId, startOfDayIso(first), startOfDayIso(addDays(last, 7)))),
+    safe(() => getScheduleAdjustmentsInRange(args.client, args.userId, args.plan.id, first, last)),
+  ]);
+
+  return buildMonthSchedule({
+    sessions: scheduleSessions(args.plan),
+    weekdays,
+    year,
+    month,
+    today: localDateString(now),
+    completed: completed ?? [],
+    adjustments: adjustments ?? [],
+    planStart: planStartDate(args.plan.effectiveFrom),
+  });
 }
 
 /** FR-2.6: records the chosen option for a missed session (and the shifted session, for "do it today"). */

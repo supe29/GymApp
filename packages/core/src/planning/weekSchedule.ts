@@ -64,12 +64,14 @@ export interface WeekSchedule {
   next: ScheduleEntry | null;
 }
 
-function addDays(date: string, days: number): string {
+/** The local date `days` after (or before) a YYYY-MM-DD date. */
+export function addDays(date: string, days: number): string {
   const [y, m, d] = date.split('-').map(Number);
   return localDateString(new Date(y, m - 1, d + days));
 }
 
-function weekdayOf(date: string): Weekday {
+/** ISO weekday of a YYYY-MM-DD date. */
+export function weekdayOf(date: string): Weekday {
   const [y, m, d] = date.split('-').map(Number);
   return (((new Date(y, m - 1, d).getDay() + 6) % 7) + 1) as Weekday;
 }

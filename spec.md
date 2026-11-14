@@ -17,9 +17,10 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - FR-2.2: Each planned session must be filled with exercises drawn from the exercise library, filtered to only exercises compatible with the user's declared equipment.
 - FR-2.3: Each prescribed exercise must specify target sets, reps, and (where applicable) starting weight/intensity guidance appropriate to the user's fitness level.
 - FR-2.4: The plan must be re-generatable on demand by the user, and automatically proposed for regeneration when a plan-affecting profile field changes (FR-1.4).
-- FR-2.5: The user must be able to choose the weekdays they train on (exactly as many as their training days per week). The plan is then shown week by week, day by day: plan day N falls on the Nth chosen weekday, with rest days in between, and each session shows its exercises and its status (done, today, upcoming, missed, skipped, merged). A session counts as done if it was completed on any day of that week. Until weekdays are chosen, the plan is shown as its day-ordered list.
+- FR-2.5: The user must be able to choose the weekdays they train on (exactly as many as their training days per week). The plan is then shown week by week, day by day (and as a month calendar, FR-2.8): plan day N falls on the Nth chosen weekday, with rest days in between, and each session shows its exercises and its status (done, today, upcoming, missed, skipped, merged). A session counts as done if it was completed on any day of that week. Until weekdays are chosen, the plan is shown as its day-ordered list.
 - FR-2.6: When a scheduled session's day has passed without it being done, the system must flag it as missed and suggest what to do, ranked by fixed rules with a plain-language reason: do it on a free day (today if possible, moving today's session to a later free day if needed), merge it into the next session if the combined session stays at 8 exercises or fewer, or skip it. The user chooses; nothing is moved automatically, and any choice can be undone. A missed session the user never resolves stays missed for that week only.
 - FR-2.7: Each training day's focus (which muscle groups, and so which exercises) must suit the user's chosen weekdays. By default the system recommends it deterministically from the base split (FR-2.1) and the weekday spacing: a day with a rest day on each side may be full body, and back-to-back days get different focuses (e.g. Upper then Lower) so muscle groups get a rest day; each recommended day states why. The user may instead pick a named split (full body, upper/lower, push/pull/legs) or set each day's focus (one or two of Full Body, Upper, Lower, Push, Pull, Legs, e.g. "Pull + Legs"), and may add a core finisher (dedicated ab exercises at the end) to any day; by default it is on for about every other day that does not already train abs. Back-to-back days that share most muscles get a non-blocking warning. Any change is previewed and applied through FR-2.4 regeneration as a new plan version (DR-5); exercise selection, beginner safety (SR-3) and equipment rules (SR-6) are unchanged.
+- FR-2.8: Once training weekdays are chosen, the user must be able to switch the plan between a week view (the FR-2.5 day-by-day list) and a month view, and move to earlier and later weeks and months. The month view is a Monday-first calendar: each training day shows its focus (the session name) and its status (done, today, upcoming, missed, skipped), rest days are blank, and tapping a day opens its week. Past weeks show the sessions completed in them as done, whatever their age, and a workout logged on a day with no scheduled session is still marked. Days before the current plan version took effect are not attributed to it (DR-5): they show no planned session, only workouts logged then. Only the current week offers missed-session options, undo and starting a session (FR-2.6); other weeks are read-only.
 
 ### 1.3 Nutrition Plan Generation
 - FR-3.1: On profile completion, the system must generate daily calorie and macronutrient (protein/carbs/fat) targets, computed deterministically from the user's profile and goal.
@@ -55,6 +56,13 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - FR-8.2: The system must automatically derive and surface personal records (heaviest weight for a given rep count, or estimated one-rep max) per exercise from workout logs, without manual entry.
 - FR-8.3: Progress views must be accessible from a dedicated section of the app, not buried in workout/nutrition logging screens.
 - FR-8.4: After every completed session (plan-attached or freeform), the system must show a session summary: what was done (sets, reps, top weight and volume per exercise, with the change vs the previous session), which muscles it worked, how it fits the user's goal (sets inside the goal's prescribed rep range, targets met), new PRs, and the next planned session with its progression changes. All facts in the summary are computed deterministically; any explanatory prose is subject to AI-5.
+- FR-8.5: The progress section must include a per-day body progress view, opening on today, where the user can step back to earlier days.
+  - For the chosen day it shows, for each muscle group, the work done against the work planned, as weighted sets. The weighting is the same as FR-8.4: a set counts 1 for each primary muscle and 0.5 for each secondary muscle.
+  - Each muscle shows its done and planned sets, the sets left, and a percent capped at 100. The view also shows an overall percent of the day's planned work done; work beyond a muscle's target doesn't raise it.
+  - The day's plan is the plan-attached session(s) logged that day, using the plan version actually followed (DR-5). If none were logged, it is the session(s) the weekly schedule puts on that date (FR-2.5).
+  - Muscles worked outside the plan are listed separately as extra work. On a day with no plan, only the work done is shown, with no percent.
+  - The 3D model (FR-4.x) is tinted per region in proportion to these values. The same data is shown as a list, which is also the non-visual fallback.
+  - Every value is computed deterministically (AI-1).
 
 ### 1.9 Authentication & Account Management
 - FR-9.1: A user must be able to create an account and sign in via email/password, Google, or Apple.
@@ -97,7 +105,7 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 4. Daily totals update against calorie/macro targets.
 
 ### 2.6 Progress Review
-1. User opens the progress section.
+1. User opens the progress section, which opens on today's body progress (FR-8.5): the 3D model tinted by how much of each muscle's planned work is done, the overall percent, and what is left. They can step back to earlier days.
 2. User views weight trend chart (with ability to log a new weight entry).
 3. User views a list of exercises with current PRs and PR history.
 
@@ -230,9 +238,20 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 - AC-17: Given a scheduled session's day has passed without it being done, when the user opens the plan, then it is shown as missed with a recommended option and its reason, plus the alternatives (always including skip); choosing an option updates the week, and the choice can be undone.
 - AC-18: Given a user has chosen back-to-back training days and the recommended split, when their plan is generated, then no two consecutive days are both full body or share the same focus.
 - AC-19: Given a user sets a day to "Pull + Legs + Core" and accepts the preview, when the new plan version is created, then that day's exercises target both pull and leg muscle groups and end with ab exercises, and the choice is kept for future regenerations.
+- AC-21: Given a user has chosen their training weekdays, when they open the month view, then they see the month Monday first with each training day showing its focus and status and rest days blank, can move to the previous and next month, and tapping a day opens the week view at that week.
+- AC-22: Given a user completed a session in a week more than 20 sessions ago, when they move back to that week in the plan, then that session shows as done; and given the current plan version took effect mid-week, days before then are not shown as missed.
 
 **Session Summary**
 - AC-15: Given a user completes any workout session, when the session is saved, then a summary of the work done, muscles worked, goal fit, and next session is shown before they leave; if AI text is shown it is labelled as AI-generated and contains only numbers present in the session facts, and if AI text is unavailable the rule-based summary is shown instead.
+
+**Body Progress**
+- AC-20: Given a planned day on which some of the prescribed sets have been logged, when the user opens body progress for that date, then:
+  - each targeted muscle shows its done, planned and remaining weighted sets and its percent (capped at 100);
+  - the overall percent equals the planned work done divided by the planned work;
+  - muscles worked outside the plan are listed as extra;
+  - the 3D model tints each muscle in proportion to its value;
+  - the 3D model labels each targeted muscle on the side facing the user with its percent (a tick once done), and each extra muscle with its set count, matching the list;
+  - the same data is available in the list.
 
 ---
 

@@ -12,8 +12,9 @@ jest.mock('api-client', () => ({
   listMuscleGroups: jest.fn(),
   getProfile: jest.fn(),
   updateTrainingWeekdays: jest.fn(),
-  getWorkoutSessionHistory: jest.fn(),
+  getCompletedSessionsInRange: jest.fn(),
   getScheduleAdjustments: jest.fn(),
+  getScheduleAdjustmentsInRange: jest.fn(),
   createScheduleAdjustment: jest.fn(),
   deleteScheduleAdjustment: jest.fn(),
   acceptPlanWithPreferences: jest.fn(),
@@ -52,7 +53,8 @@ function mocks(weekdays: number[] | null = [1, 3, 5]) {
   mocked.getProfile.mockResolvedValue(profile(weekdays));
   mocked.getMuscleKeysForExercises.mockResolvedValue({ data: new Map(), error: null });
   mocked.listMuscleGroups.mockResolvedValue({ data: [], error: null });
-  mocked.getWorkoutSessionHistory.mockResolvedValue({ data: [], error: null });
+  mocked.getCompletedSessionsInRange.mockResolvedValue({ data: [], error: null });
+  mocked.getScheduleAdjustmentsInRange.mockResolvedValue({ data: [], error: null });
   mocked.getScheduleAdjustments.mockResolvedValue({ data: [], error: null });
   mocked.createScheduleAdjustment.mockResolvedValue({ data: {} as never, error: null });
   mocked.deleteScheduleAdjustment.mockResolvedValue({ data: null, error: null });
@@ -108,14 +110,8 @@ describe('WorkoutPlanScreen week view (FR-2.5/FR-2.6/AC-16/AC-17)', () => {
 
   test('a session done earlier in the week shows as done, with no missed card', async () => {
     mocks();
-    mocked.getWorkoutSessionHistory.mockResolvedValue({
-      data: [
-        {
-          session: { id: 'ws1', plannedSessionId: 'A', workoutPlanId: 'plan-1', status: 'completed', startedAt: '', completedAt: new Date(2026, 10, 10, 18).toISOString() },
-          exerciseNames: {},
-          setLogs: [],
-        },
-      ],
+    mocked.getCompletedSessionsInRange.mockResolvedValue({
+      data: [{ plannedSessionId: 'A', completedAt: new Date(2026, 10, 10, 18).toISOString() }],
       error: null,
     });
     const { findByTestId, queryByTestId } = renderPlan();
@@ -214,7 +210,7 @@ describe('WorkoutPlanScreen week view (FR-2.5/FR-2.6/AC-16/AC-17)', () => {
     const { findByTestId, getByTestId, queryByTestId } = renderPlan({ onStartSession: jest.fn() });
     await findByTestId('missed-session-A');
 
-    fireEvent.press(getByTestId('plan-week-toggle'));
+    fireEvent.press(getByTestId('plan-week-next'));
 
     expect((await findByTestId('plan-week-title')).props.children).toBe('Next week');
     await waitFor(() => expect(getByTestId('plan-day-2026-11-16')).toBeTruthy());
@@ -313,5 +309,99 @@ describe('WorkoutPlanScreen week view (FR-2.5/FR-2.6/AC-16/AC-17)', () => {
 
       await waitFor(() => expect(mocked.buildRegenerationPreview).toHaveBeenCalledWith(fakeClient, 'user-1'));
     });
+  });
+});
+
+describe('WorkoutPlanScreen week and month navigation (FR-2.8/AC-21/AC-22)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('pages back to past weeks, which show sessions completed then as done and are read-only', async () => {
+    mocks();
+    mocked.getCompletedSessionsInRange.mockResolvedValue({
+      data: [{ plannedSessionId: 'A', completedAt: new Date(2026, 9, 13, 18).toISOString() }],
+      error: null,
+    });
+    mocked.getScheduleAdjustments.mockResolvedValue({
+      data: [
+        { id: 'adj-skip', workoutPlanId: 'plan-1', weekStart: '2026-10-12', plannedSessionId: 'B', action: 'skip', targetDate: null, mergeIntoPlannedSessionId: null },
+      ],
+      error: null,
+    });
+    const { findByTestId, getByTestId, queryByTestId } = renderPlan({ onStartSession: jest.fn() });
+    await findByTestId('missed-session-A');
+
+    for (let i = 0; i < 4; i++) fireEvent.press(getByTestId('plan-week-prev'));
+
+    expect((await findByTestId('plan-week-title')).props.children).toBe('4 weeks ago');
+    await waitFor(() => expect(getByTestId('plan-session-1-status').props.children).toBe('Done ✓'));
+    // AC-22: the completed sessions are looked up for that week, not from the most recent sessions.
+    expect(mocked.getCompletedSessionsInRange).toHaveBeenLastCalledWith(
+      fakeClient,
+      'user-1',
+      new Date(2026, 9, 12).toISOString(),
+      new Date(2026, 9, 19).toISOString(),
+    );
+    expect(getByTestId('plan-session-2-status').props.children).toBe('Skipped');
+    expect(queryByTestId('missed-session-A')).toBeNull();
+    expect(queryByTestId('plan-session-2-undo')).toBeNull();
+    expect(queryByTestId('plan-session-3-start')).toBeNull();
+
+    fireEvent.press(getByTestId('plan-week-current'));
+    expect((await findByTestId('plan-week-title')).props.children).toBe('This week');
+  });
+
+  test('DR-5: days before the current plan took effect are not shown as missed', async () => {
+    mocks();
+    mocked.getCurrentPlan.mockResolvedValue({ data: { ...PLAN, effectiveFrom: new Date(2026, 10, 10, 9).toISOString() }, error: null });
+    const { findByTestId, getByTestId, queryByTestId } = renderPlan();
+
+    await findByTestId('plan-week-title');
+    expect(within(getByTestId('plan-day-2026-11-09')).getByText('Rest day')).toBeTruthy();
+    expect(queryByTestId('missed-session-A')).toBeNull();
+    expect(getByTestId('plan-session-2-status').props.children).toBe('Today');
+  });
+
+  test('the month view shows each training day with its focus and status, and tapping a day opens its week', async () => {
+    mocks();
+    mocked.getCompletedSessionsInRange.mockResolvedValue({
+      data: [{ plannedSessionId: 'A', completedAt: new Date(2026, 10, 2, 18).toISOString() }],
+      error: null,
+    });
+    const { findByTestId, getByTestId } = renderPlan();
+    await findByTestId('plan-week-title');
+
+    fireEvent.press(getByTestId('plan-view-toggle-month'));
+
+    expect((await findByTestId('plan-month-title')).props.children).toMatch(/November 2026/);
+    await waitFor(() => expect(getByTestId('plan-month-day-2026-11-02-mark').props.children).toBe('●'));
+    expect(getByTestId('plan-month-day-2026-11-02-focus').props.children).toBe('Full Body A');
+    expect(getByTestId('plan-month-day-2026-11-09-mark').props.children).toBe('✕');
+    expect(getByTestId('plan-month-day-2026-11-11-focus').props.children).toBe('Full Body B');
+    expect(getByTestId('plan-month-day-2026-11-20-mark').props.children).toBe('○');
+    expect(getByTestId('plan-month-day-2026-11-10').props.accessibilityLabel).toContain('rest day');
+    expect(mocked.getScheduleAdjustmentsInRange).toHaveBeenCalledWith(fakeClient, 'user-1', 'plan-1', '2026-10-26', '2026-11-30');
+
+    fireEvent.press(getByTestId('plan-month-day-2026-11-25'));
+
+    expect((await findByTestId('plan-week-title')).props.children).toBe('In 2 weeks');
+    expect(getByTestId('plan-day-2026-11-23')).toBeTruthy();
+  });
+
+  test('the month view pages between months', async () => {
+    mocks();
+    const { findByTestId, getByTestId, queryByTestId } = renderPlan();
+    await findByTestId('plan-week-title');
+    fireEvent.press(getByTestId('plan-view-toggle-month'));
+    await findByTestId('plan-month-title');
+    expect(queryByTestId('plan-month-current')).toBeNull();
+
+    fireEvent.press(getByTestId('plan-month-next'));
+    await waitFor(() => expect(getByTestId('plan-month-title').props.children).toMatch(/December 2026/));
+    fireEvent.press(getByTestId('plan-month-prev'));
+    fireEvent.press(getByTestId('plan-month-prev'));
+    await waitFor(() => expect(getByTestId('plan-month-title').props.children).toMatch(/October 2026/));
+
+    fireEvent.press(getByTestId('plan-month-current'));
+    await waitFor(() => expect(getByTestId('plan-month-title').props.children).toMatch(/November 2026/));
   });
 });

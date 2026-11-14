@@ -3,6 +3,7 @@ import {
   createScheduleAdjustment,
   deleteScheduleAdjustment,
   getScheduleAdjustments,
+  getScheduleAdjustmentsInRange,
   type ScheduleAdjustmentRow,
 } from './scheduleAdjustments';
 import { createMockClient, createQueryBuilderMock } from './testSupport/mockClient';
@@ -32,6 +33,20 @@ describe('schedule adjustments (FR-2.6)', () => {
     expect(builder.eq).toHaveBeenCalledWith('workout_plan_id', 'plan-1');
     expect(builder.eq).toHaveBeenCalledWith('week_start', '2026-11-09');
     expect(result.data?.[0]).toMatchObject({ id: 'adj-1', plannedSessionId: 'ps-1', action: 'move', targetDate: '2026-11-11' });
+  });
+
+  test('FR-2.8: lists a run of weeks for one plan version, scoped to the user', async () => {
+    const { client, from } = createMockClient();
+    const builder = createQueryBuilderMock({ data: [row], error: null });
+    from.mockReturnValueOnce(builder);
+
+    const result = await getScheduleAdjustmentsInRange(client, 'user-1', 'plan-1', '2026-10-26', '2026-11-30');
+
+    expect(builder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(builder.eq).toHaveBeenCalledWith('workout_plan_id', 'plan-1');
+    expect(builder.gte).toHaveBeenCalledWith('week_start', '2026-10-26');
+    expect(builder.lte).toHaveBeenCalledWith('week_start', '2026-11-30');
+    expect(result.data?.[0]).toMatchObject({ id: 'adj-1', weekStart: '2026-11-09' });
   });
 
   test('creates a choice, sending null for unused fields', async () => {

@@ -24,6 +24,7 @@ import {
   type FitnessLevel,
   type Goal,
   type MissedOption,
+  type MonthSchedule,
   type PlanPreferences,
   type ScheduleEntry,
   type Weekday,
@@ -36,9 +37,17 @@ import { getSupabaseClient } from '../../lib/supabaseClient';
 import { useExerciseMuscles } from '../exercise-demo/useExerciseMuscles';
 import DayFocusEditor from './DayFocusEditor';
 import MissedSessionCard from './MissedSessionCard';
+import MonthCalendar from './MonthCalendar';
 import RegeneratePlanPrompt from './RegeneratePlanPrompt';
 import WeekdayPicker from './WeekdayPicker';
-import { applyMissedOption, loadWeekSchedule, undoChoice, type WeekScheduleData } from './weekScheduleData';
+import {
+  applyMissedOption,
+  loadMonthSchedule,
+  loadWeekSchedule,
+  undoChoice,
+  weekOffsetFor,
+  type WeekScheduleData,
+} from './weekScheduleData';
 
 export interface WorkoutPlanScreenProps {
   client?: GymSupabaseClient;
@@ -75,12 +84,21 @@ function dayLabel(date: string): { weekday: string; day: number; month: string }
   return { weekday: WEEKDAY_SHORT[weekday], day: d, month: js.toLocaleDateString(undefined, { month: 'short' }) };
 }
 
+function weekTitle(offset: number): string {
+  if (offset === 0) return 'This week';
+  if (offset === 1) return 'Next week';
+  if (offset === -1) return 'Last week';
+  return offset > 0 ? `In ${offset} weeks` : `${-offset} weeks ago`;
+}
+
 /**
  * FR-2.1–FR-2.6/AC-1/AC-2/AC-16/AC-17/NFR-7: the user's workout plan as a
  * week on their chosen training days (FR-2.5), with missed sessions
  * flagged and rule-based options to fix them (FR-2.6; resolves OQ-5, see
  * docs/decisions/OQ-5-session-rescheduling.md). Until weekdays are
  * picked, the plan shows as its day-ordered list with a day picker.
+ * FR-2.8: a Week | Month switch; both page into past and future, and only
+ * the current week is actionable.
  * Regeneration previews a diff before committing (FR-2.4), each exercise
  * keeps its "why" disclosure (NFR-7) and movement demo (one open at a
  * time; each figure is a GL canvas).
@@ -120,8 +138,12 @@ export default function WorkoutPlanScreen({
   const [editingDays, setEditingDays] = useState(false);
   const [savingDays, setSavingDays] = useState(false);
   const [daysError, setDaysError] = useState<string | null>(null);
+  // FR-2.8: week or month view, each navigable into the past and future.
+  const [view, setView] = useState<'week' | 'month'>('week');
   const [weekOffset, setWeekOffset] = useState(0);
   const [week, setWeek] = useState<WeekScheduleData | null>(null);
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [month, setMonth] = useState<MonthSchedule | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [muscleInfo, setMuscleInfo] = useState<{ byExercise: Record<string, string[]>; names: Record<string, string> }>({
     byExercise: {},
@@ -182,6 +204,30 @@ export default function WorkoutPlanScreen({
   useEffect(() => {
     refreshWeek();
   }, [refreshWeek]);
+
+  useEffect(() => {
+    if (view !== 'month' || !currentPlan || !profileDays) return;
+    let cancelled = false;
+    loadMonthSchedule({
+      client,
+      userId,
+      plan: currentPlan,
+      trainingWeekdays: profileDays.weekdays,
+      trainingDaysPerWeek: profileDays.count,
+      now,
+      monthOffset,
+    }).then((data) => {
+      if (!cancelled) setMonth(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, client, userId, currentPlan, profileDays, now, monthOffset]);
+
+  function openWeekOf(date: string) {
+    setWeekOffset(weekOffsetFor(now ?? new Date(), date));
+    setView('week');
+  }
 
   async function handleGenerateInitial() {
     setError(null);
@@ -445,7 +491,7 @@ export default function WorkoutPlanScreen({
               <Text style={styles.buttonText}>{entry.status === 'today' ? 'Start today’s session' : 'Start next session'}</Text>
             </Pressable>
           ) : null}
-          {hasChoice || merged.length > 0 ? (
+          {weekOffset === 0 && (hasChoice || merged.length > 0) ? (
             <Pressable
               testID={`plan-session-${session.dayOrder}-undo`}
               disabled={choosing}
@@ -529,10 +575,51 @@ export default function WorkoutPlanScreen({
 
       {week && !editingDays ? (
         <>
+          <View style={styles.viewBar}>
+            <View style={styles.segment} accessibilityRole="tablist">
+              {(['week', 'month'] as const).map((v) => (
+                <Pressable
+                  key={v}
+                  testID={`plan-view-toggle-${v}`}
+                  onPress={() => setView(v)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: view === v }}
+                  style={[styles.segmentItem, view === v && styles.segmentItemActive]}
+                >
+                  <Text style={[styles.segmentText, view === v && styles.segmentTextActive]}>{v === 'week' ? 'Week' : 'Month'}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.weekLinks}>
+              <Pressable testID="plan-edit-days" onPress={() => setEditingDays(true)} accessibilityRole="button">
+                <Text style={styles.link}>Edit days</Text>
+              </Pressable>
+              <Pressable testID="plan-customise-days" onPress={() => setEditingFocus(true)} accessibilityRole="button">
+                <Text style={styles.link}>Customise workouts</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {view === 'month' ? (
+            month ? (
+              <MonthCalendar
+                schedule={month}
+                today={week.today}
+                isCurrent={monthOffset === 0}
+                onPrev={() => setMonthOffset((o) => o - 1)}
+                onNext={() => setMonthOffset((o) => o + 1)}
+                onThisMonth={() => setMonthOffset(0)}
+                onSelectDay={openWeekOf}
+              />
+            ) : (
+              <Text testID="plan-month-loading">Loading...</Text>
+            )
+          ) : (
+          <>
           <View style={styles.weekHeader}>
             <View>
               <Text testID="plan-week-title" style={styles.weekTitle}>
-                {weekOffset === 0 ? 'This week' : 'Next week'}
+                {weekTitle(weekOffset)}
               </Text>
               <Text style={styles.weekRange}>
                 {`${dayLabel(week.schedule.days[0].date).weekday} ${dayLabel(week.schedule.days[0].date).day} – ${
@@ -540,15 +627,29 @@ export default function WorkoutPlanScreen({
                 } ${dayLabel(week.schedule.days[6].date).day} ${dayLabel(week.schedule.days[6].date).month}`}
               </Text>
             </View>
-            <View style={styles.weekLinks}>
-              <Pressable testID="plan-week-toggle" onPress={() => setWeekOffset((o) => (o === 0 ? 1 : 0))} accessibilityRole="button">
-                <Text style={styles.link}>{weekOffset === 0 ? 'Next week →' : '← This week'}</Text>
+            <View style={styles.weekNav}>
+              {weekOffset !== 0 ? (
+                <Pressable testID="plan-week-current" onPress={() => setWeekOffset(0)} accessibilityRole="button">
+                  <Text style={[styles.link, styles.navLink]}>This week</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                testID="plan-week-prev"
+                onPress={() => setWeekOffset((o) => o - 1)}
+                accessibilityRole="button"
+                accessibilityLabel="Previous week"
+                style={styles.arrow}
+              >
+                <Text style={styles.arrowText}>‹</Text>
               </Pressable>
-              <Pressable testID="plan-edit-days" onPress={() => setEditingDays(true)} accessibilityRole="button">
-                <Text style={styles.link}>Edit days</Text>
-              </Pressable>
-              <Pressable testID="plan-customise-days" onPress={() => setEditingFocus(true)} accessibilityRole="button">
-                <Text style={styles.link}>Customise workouts</Text>
+              <Pressable
+                testID="plan-week-next"
+                onPress={() => setWeekOffset((o) => o + 1)}
+                accessibilityRole="button"
+                accessibilityLabel="Next week"
+                style={styles.arrow}
+              >
+                <Text style={styles.arrowText}>›</Text>
               </Pressable>
             </View>
           </View>
@@ -586,6 +687,8 @@ export default function WorkoutPlanScreen({
               </View>
             );
           })}
+          </>
+          )}
         </>
       ) : !showPicker || !profileDays ? (
         currentPlan.sessions.map((session) => (
@@ -627,6 +730,16 @@ const styles = StyleSheet.create({
   weekTitle: { fontSize: 18, fontWeight: '700' },
   weekRange: { fontSize: 13, color: '#666', marginTop: 2 },
   weekLinks: { alignItems: 'flex-end', gap: 6 },
+  viewBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  segment: { flexDirection: 'row', backgroundColor: '#eee', borderRadius: 8, padding: 2 },
+  segmentItem: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 6 },
+  segmentItemActive: { backgroundColor: '#111' },
+  segmentText: { fontSize: 13, fontWeight: '700', color: '#444' },
+  segmentTextActive: { color: '#fff' },
+  weekNav: { flexDirection: 'row', alignItems: 'center' },
+  navLink: { marginRight: 8 },
+  arrow: { paddingHorizontal: 10, paddingVertical: 2 },
+  arrowText: { fontSize: 22, fontWeight: '700', color: '#111' },
   link: { fontSize: 13, fontWeight: '700', color: '#111', textDecorationLine: 'underline' },
   day: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#e6e6e6', paddingVertical: 10 },
   dayToday: { backgroundColor: '#f3f7f3', borderRadius: 10, borderTopColor: 'transparent', paddingHorizontal: 6 },

@@ -9,6 +9,7 @@ import type { SetLogEntry } from '../logs/logAggregation';
 import { PRESCRIPTION_RULES } from '../planning/rules/prescriptionRules';
 import type { ProgressionAction } from '../progression/evaluateSession';
 import { formatWeight, type UnitPreference } from '../units/weightConversion';
+import { weightedSetsByMuscle } from './muscleCoverage';
 import type { FitnessLevel, Goal } from '../validation/profileValidation';
 
 export interface SummaryExerciseInput {
@@ -180,17 +181,13 @@ export function buildSessionSummary(input: SessionSummaryInput): SessionSummary 
   const totalChange = changes.length > 0 ? round1(changes.reduce((a, b) => a + b, 0)) : null;
 
   // Muscles: set-weighted, primary 1, secondary 0.5.
-  const weighted = new Map<string, number>();
-  const primaryKeys = new Set<string>();
-  for (const ex of input.exercises) {
-    const sets = exercises.find((e) => e.exerciseId === ex.exerciseId)?.setsDone ?? 0;
-    if (sets === 0) continue;
-    ex.primaryMuscleKeys.forEach((key) => {
-      weighted.set(key, (weighted.get(key) ?? 0) + sets);
-      primaryKeys.add(key);
-    });
-    ex.secondaryMuscleKeys.forEach((key) => weighted.set(key, (weighted.get(key) ?? 0) + sets * 0.5));
-  }
+  const withSets = input.exercises.map((ex) => ({
+    sets: exercises.find((e) => e.exerciseId === ex.exerciseId)?.setsDone ?? 0,
+    primaryMuscleKeys: ex.primaryMuscleKeys,
+    secondaryMuscleKeys: ex.secondaryMuscleKeys,
+  }));
+  const weighted = weightedSetsByMuscle(withSets);
+  const primaryKeys = new Set(withSets.filter((ex) => ex.sets > 0).flatMap((ex) => ex.primaryMuscleKeys));
   const musclesWorked: MuscleWorked[] = [...weighted.entries()]
     .map(([key, weightedSets]) => ({ key, name: input.muscleNames[key] ?? key, weightedSets }))
     .sort((a, b) => b.weightedSets - a.weightedSets || a.name.localeCompare(b.name));

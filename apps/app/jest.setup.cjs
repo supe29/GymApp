@@ -11,9 +11,9 @@ jest.mock('three-model', () => {
   return {
     DemoFigure: (props) =>
       react.createElement(rn.View, { testID: 'mock-demo-figure', clip: props.clip, paused: props.paused, muscles: props.muscles }),
-    BodyModel: react.forwardRef((_props, ref) => {
+    BodyModel: react.forwardRef((props, ref) => {
       react.useImperativeHandle(ref, () => ({ reset: () => {}, showSide: () => {} }));
-      return react.createElement(rn.View, { testID: 'mock-body-model' });
+      return react.createElement(rn.View, { testID: 'mock-body-model', regionLabels: props.regionLabels });
     }),
   };
 });

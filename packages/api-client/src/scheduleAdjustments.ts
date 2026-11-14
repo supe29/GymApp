@@ -41,6 +41,25 @@ export async function getScheduleAdjustments(
   return { data: (data ?? []).map(toPersisted), error: null };
 }
 
+/** FR-2.8: the user's choices for one plan version across a run of weeks (inclusive Monday bounds), for the month view. */
+export async function getScheduleAdjustmentsInRange(
+  client: GymSupabaseClient,
+  userId: string,
+  workoutPlanId: string,
+  fromWeekStart: string,
+  toWeekStart: string,
+): Promise<ApiResult<PersistedScheduleAdjustment[]>> {
+  const { data, error } = await client
+    .from('schedule_adjustments')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('workout_plan_id', workoutPlanId)
+    .gte('week_start', fromWeekStart)
+    .lte('week_start', toWeekStart);
+  if (error) return { data: null, error: error.message };
+  return { data: (data ?? []).map(toPersisted), error: null };
+}
+
 export interface CreateScheduleAdjustmentInput {
   workoutPlanId: string;
   weekStart: string;
