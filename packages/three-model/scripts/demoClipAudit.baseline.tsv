@@ -1,6 +1,6 @@
 # sha256 auditDemoClips.py 9e37ad670e44abf1e59d4b6a33e450834f5557aeb39103e52d1260546529800b
-# sha256 buildDemoMesh.py 46155941b5e91c2abc88831c49435dde0c1d925660707bc82ad48d2cbb9dca41
-# sha256 body-demo.glb 9dbe7163336fedf8e34aa23edd067679e0a22fc3e34051db41c971d00f1f2494
+# sha256 buildDemoMesh.py d8d1ba13cf20599fa48d839152f80309c2e89e91bb3e18b3f68e1a9175f8ca6d
+# sha256 body-demo.glb 429d801d70c21ec310f77b6568579ff9dde2d33695e2e15a4445feed98934ef5
 ab_rollout	below_floor		0.043
 arnold_press	pop		48.341
 around_the_world	prop_through_body	prop_dumbbell_l/thigh_l	0.042

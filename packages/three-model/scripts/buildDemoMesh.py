@@ -5246,7 +5246,8 @@ INCLINE_UP, INCLINE_HEAD = (0, -0.45, 0.89), (0, 0.89, 0.45)
 DECLINE_UP, DECLINE_HEAD = (0, 0.4, 0.92), (0, 0.92, -0.4)
 LOW_PULLEY_AHEAD = (0, -0.5, 0.12)
 HIGH_PULLEY_AHEAD = (0, -0.45, HIGH_PULLEY)
-LOW_PULLEY_BEHIND = (0, 0.55, 0.12)
+# A step or two out from the stack, so a cable to hands overhead clears the back and hips.
+LOW_PULLEY_BEHIND = (0, 1.0, 0.12)
 HIGH_PULLEY_BEHIND = (0, 0.5, HIGH_PULLEY)
 # The palm's share of the way from underhand to overhand over a Zottman curl's rep.
 ZOTTMAN_TURN = ((0.0, (0.0,)), (0.45, (0.0,)), (0.58, (1.0,)), (0.9, (1.0,)), (1.0, (0.0,)))
@@ -6162,7 +6163,7 @@ CLIPS.update({
     'triceps_pushdown_rope': (cabled(elbow_clip(standing(5), ELBOWS_DOWN, AHEAD, PRESS_DOWN, palm='in', half=0.07), left=HIGH_PULLEY_AHEAD, right=HIGH_PULLEY_AHEAD), 'tall', SIDE_TURN),
     'triceps_pushdown_close': (cabled(elbow_clip(standing(5), ELBOWS_DOWN, AHEAD, PRESS_DOWN, palm='down', half=0.08, prop='prop_pole'), bar=('prop_pole', HIGH_PULLEY_AHEAD)), 'tall', SIDE_TURN),
     'triceps_pushdown_one_arm': (cabled(elbow_clip(standing(5), ELBOWS_DOWN, AHEAD, PRESS_DOWN, arms=FLAT_ONLY_LEFT), left=(0.2, -0.45, HIGH_PULLEY)), 'tall', SIDE_TURN),
-    'triceps_overhead_cable': (cabled(elbow_clip(standing(24), (0.03, -0.62, 0.72), BEHIND, OVERHEAD_EXTEND, palm='in', half=0.07), left=LOW_PULLEY_BEHIND, right=LOW_PULLEY_BEHIND), 'tall', SIDE_TURN),
+    'triceps_overhead_cable': (cabled(elbow_clip(standing(15), (0.03, -0.25, 1), BEHIND, OVERHEAD_EXTEND, palm='in', half=0.07), left=LOW_PULLEY_BEHIND, right=LOW_PULLEY_BEHIND), 'tall', SHOULDER_TURN),
     'triceps_overhead_cable_one_arm': (cabled(elbow_clip(standing(4), ELBOWS_UP, BEHIND, OVERHEAD_EXTEND, palm='in', arms=FLAT_ONLY_LEFT), left=(0.2, 0.55, 0.12)), 'tall', SIDE_TURN),
     'triceps_kneeling_cable': (cabled(elbow_clip(kneel(30), (0.03, -0.75, 0.62), BEHIND, OVERHEAD_EXTEND, palm='down', half=0.1, prop='prop_pole'), bar=('prop_pole', (0, 0.55, HIGH_PULLEY))), 'tall', SIDE_TURN),
     'triceps_incline_cable': (cabled(elbow_clip(on_bench_back(INCLINE), INCLINE_UP, INCLINE_HEAD, LYING_EXTEND, palm='down', half=0.12, prop='prop_pole'), bar=('prop_pole', (0, 1.0, HIGH_PULLEY))), 'tall', SIDE_ON),
