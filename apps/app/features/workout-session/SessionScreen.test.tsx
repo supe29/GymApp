@@ -130,6 +130,39 @@ describe('SessionScreen (FR-5.2/FR-5.3/FR-5.4/NFR-3)', () => {
     expect(getByTestId('set-logger-ex-3')).toBeTruthy();
   });
 
+  test("FR-5.4: each exercise shows its own rest, from the user's goal and the exercise's mechanic", async () => {
+    // Once-values win over the defaults renderLoaded sets.
+    mockedApiClient.getProfile.mockResolvedValueOnce({
+      data: { unit_preference: 'metric', goal: 'strength', fitness_level: 'intermediate' } as never,
+      error: null,
+    });
+    mockedApiClient.getExercisesWithTags.mockResolvedValueOnce({
+      data: [{ ...exerciseLibrary[0], mechanic: 'compound' }, { ...exerciseLibrary[1], mechanic: 'isolation' }, exerciseLibrary[2]],
+      error: null,
+    });
+    const { getByTestId } = await renderLoaded();
+
+    await waitFor(() => expect(getByTestId('set-logger-ex-1-rest').props.children).toBe('Rest 3:00 between sets'));
+    expect(getByTestId('set-logger-ex-2-rest').props.children).toBe('Rest 1:30 between sets');
+  });
+
+  test('FR-5.3: the add-exercise list can be searched by name or muscle', async () => {
+    const { getAllByTestId, getByTestId, queryByTestId } = await renderLoaded();
+
+    fireEvent.press(getByTestId('session-add-exercise-toggle'));
+    fireEvent.changeText(getByTestId('session-add-exercise-search'), 'leg');
+    expect(getByTestId('session-add-exercise-option-ex-3')).toBeTruthy();
+    expect(queryByTestId('session-add-exercise-option-ex-2')).toBeNull();
+
+    fireEvent.changeText(getByTestId('session-add-exercise-search'), 'chest');
+    expect(getByTestId('session-add-exercise-option-ex-2')).toBeTruthy();
+    expect(queryByTestId('session-add-exercise-option-ex-3')).toBeNull();
+
+    fireEvent.press(getByTestId('session-add-exercise-option-ex-2'));
+    // Bench Press is already in this plan; adding it again gives it a second slot.
+    expect(getAllByTestId('set-logger-ex-2')).toHaveLength(2);
+  });
+
   test('integration: logs a full session including a mid-session substitution', async () => {
     mockEnqueue.mockResolvedValue(undefined);
     mockedApiClient.completeWorkoutSession.mockResolvedValue({

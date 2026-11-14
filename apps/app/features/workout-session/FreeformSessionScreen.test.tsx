@@ -128,6 +128,22 @@ describe('FreeformSessionScreen (FR-5.2/AC-8)', () => {
     expect(getByTestId('freeform-add-exercise-option-ex-2')).toBeTruthy();
   });
 
+  test('FR-5.3: searching the add-exercise list narrows it and still excludes added exercises', async () => {
+    const { getByTestId, queryByTestId } = await renderLoaded();
+
+    fireEvent.press(getByTestId('freeform-add-exercise-toggle'));
+    fireEvent.changeText(getByTestId('freeform-add-exercise-search'), 'push');
+    expect(getByTestId('freeform-add-exercise-option-ex-2')).toBeTruthy();
+    expect(queryByTestId('freeform-add-exercise-option-ex-1')).toBeNull();
+    fireEvent.press(getByTestId('freeform-add-exercise-option-ex-2'));
+    expect(getByTestId('set-logger-ex-2')).toBeTruthy();
+
+    fireEvent.press(getByTestId('freeform-add-exercise-toggle'));
+    fireEvent.changeText(getByTestId('freeform-add-exercise-search'), 'push');
+    expect(queryByTestId('freeform-add-exercise-option-ex-2')).toBeNull();
+    expect(getByTestId('freeform-add-exercise-no-results')).toBeTruthy();
+  });
+
   test('Phase 10 integration (FR-8.2/AC-11/NFR-4): a new heaviest set shows a PR card before onSessionCompleted fires, even with no plan attachment', async () => {
     const onSessionCompleted = jest.fn();
     const { getByTestId } = await renderLoaded(onSessionCompleted);

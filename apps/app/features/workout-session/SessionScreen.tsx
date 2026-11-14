@@ -17,6 +17,7 @@ import {
   deriveNewPersonalRecords,
   evaluateExercisePerformance,
   filterByEquipmentSubset,
+  restBetweenSets,
   filterByMuscleGroup,
   type ExerciseWithTags,
   type FitnessLevel,
@@ -30,11 +31,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import ExerciseDemoPanel, { DemoModelCredit } from '../../components/ExerciseDemoPanel';
+import ExercisePicker from '../../components/ExercisePicker';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import ProgressionSuggestionCard from '../plan/ProgressionSuggestionCard';
 import NewPersonalRecordCard from '../progress/NewPersonalRecordCard';
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
-import RestTimer from './RestTimer';
 import SetLogger, { type LoggedSetDisplay, type PreviousSet } from './SetLogger';
 import { buildSummaryForSession } from './buildSummaryForSession';
 import SessionSummary from './SessionSummary';
@@ -126,6 +127,11 @@ export default function SessionScreen({
   const [newPrCards, setNewPrCards] = useState<NewPrCardState[]>([]);
   const [unitPreference, setUnitPreference] = useState<UnitPreference>('metric');
   const [profileGoal, setProfileGoal] = useState<{ goal: Goal; fitnessLevel: FitnessLevel } | null>(null);
+  // FR-5.4: each exercise's rest between sets, from the user's goal and the exercise's mechanic.
+  const restByExerciseId = useMemo(
+    () => new Map(exerciseLibrary.map((e) => [e.id, restBetweenSets(profileGoal?.goal, e.mechanic)] as const)),
+    [exerciseLibrary, profileGoal],
+  );
   const [sessionMeta, setSessionMeta] = useState<{ name: string; startedAt: string | null }>({ name: 'Workout', startedAt: null });
   // FR-8.4: set once the session is completed; the summary then replaces the logging view.
   const [completedSummary, setCompletedSummary] = useState<{ summary: SessionSummaryData; aiFacts: SessionAiFacts } | null>(null);
@@ -601,6 +607,7 @@ export default function SessionScreen({
               onLogSet={(input) => handleLogSet(slot.id, input)}
               onRetrySet={handleRetrySet}
               previousSet={slot.previousSet ?? undefined}
+              rest={restByExerciseId.get(slot.exerciseId) ?? restBetweenSets(profileGoal?.goal, null)}
               headerAccessory={
                 hiddenDemoSlotIds.has(slot.id) ? null : (
                   <ExerciseDemoPanel
@@ -668,8 +675,6 @@ export default function SessionScreen({
         </View>
       ))}
 
-      <RestTimer />
-
       <Pressable
         testID="session-add-exercise-toggle"
         style={styles.button}
@@ -681,17 +686,7 @@ export default function SessionScreen({
       </Pressable>
       {showAddExercise ? (
         <View testID="session-add-exercise-options">
-          {addableExercises.map((exercise) => (
-            <Pressable
-              key={exercise.id}
-              testID={`session-add-exercise-option-${exercise.id}`}
-              style={styles.optionRow}
-              onPress={() => handleAddExercise(exercise)}
-              accessibilityRole="button"
-            >
-              <Text style={styles.optionText}>{exercise.name}</Text>
-            </Pressable>
-          ))}
+          <ExercisePicker exercises={addableExercises} onSelect={handleAddExercise} testIDPrefix="session-add-exercise" autoFocus />
         </View>
       ) : null}
 

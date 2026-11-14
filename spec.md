@@ -36,8 +36,8 @@ Derived from `intent.md`. This document specifies *what* the V1 product must do 
 ### 1.5 Workout Logging
 - FR-5.1: A user must be able to log a workout session: for each exercise, log one or more sets with weight and reps (and optionally RPE).
 - FR-5.2: A logged session may be attached to a planned session (pre-filled with prescribed exercises, editable) or created freeform with no plan attached.
-- FR-5.3: Within a session, the user must be able to add exercises not in the prescribed plan, skip a prescribed exercise, or substitute one exercise for another.
-- FR-5.4: The app must offer a rest timer between logged sets.
+- FR-5.3: Within a session, the user must be able to add exercises not in the prescribed plan, skip a prescribed exercise, or substitute one exercise for another. Wherever exercises are added (plan-attached and freeform sessions), the user picks them by searching the available exercises by name or by the muscles they work.
+- FR-5.4: The app must offer a rest timer between logged sets. Each exercise has its own rest, set deterministically from the user's goal and whether the exercise is compound or isolation (longer for strength and compound lifts, shorter for fat loss and isolation moves), shown with the exercise and its reason; logging a set starts that rest counting down, and the user is alerted when it is over. No rest is counted after the last prescribed set.
 - FR-5.5: Completed sessions must be persisted and viewable in a workout history.
 
 ### 1.6 Progressive Overload / Plan Adaptation
