@@ -64,3 +64,62 @@ export function filterByDifficulty(
 ): ExerciseWithTags[] {
   return exercises.filter((e) => e.difficulty === difficulty);
 }
+
+/** Lower-case words, with hyphens, underscores and other punctuation treated as spaces. */
+function words(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+function everyWordMatches(queryWords: string[], targetWords: string[]): boolean {
+  return queryWords.every((q) => targetWords.some((t) => t.startsWith(q)));
+}
+
+export interface ExerciseSearchResult {
+  /** Best matches first, at most `limit` of them. */
+  results: ExerciseWithTags[];
+  /** How many exercises matched in total, before the limit. */
+  total: number;
+}
+
+/**
+ * FR-5.3: free-text search over an exercise list, for the add-exercise
+ * picker. Every query word must start a word of the exercise's name or of
+ * one of its muscle keys ("bench" → "Barbell Bench Press", "pull up" →
+ * "Pull-Up", "chest" → chest exercises). Ranked: name starts with the
+ * query, then name match, then primary-muscle match, then secondary;
+ * ties alphabetical. An empty query lists everything alphabetically.
+ */
+export function searchExercises(
+  exercises: readonly ExerciseWithTags[],
+  query: string,
+  options: { limit?: number } = {},
+): ExerciseSearchResult {
+  const limit = options.limit ?? 30;
+  const queryWords = words(query);
+  const phrase = queryWords.join(' ');
+
+  const ranked: { exercise: ExerciseWithTags; rank: number }[] = [];
+  for (const exercise of exercises) {
+    const nameWords = words(exercise.name);
+    let rank: number | null = null;
+    if (queryWords.length === 0) rank = 0;
+    else if (nameWords.join(' ').startsWith(phrase)) rank = 0;
+    else if (everyWordMatches(queryWords, nameWords)) rank = 1;
+    else if (everyWordMatches(queryWords, [...nameWords, ...exercise.primaryMuscleKeys.flatMap(words)])) rank = 2;
+    else if (
+      everyWordMatches(queryWords, [
+        ...nameWords,
+        ...exercise.primaryMuscleKeys.flatMap(words),
+        ...exercise.secondaryMuscleKeys.flatMap(words),
+      ])
+    )
+      rank = 3;
+    if (rank !== null) ranked.push({ exercise, rank });
+  }
+
+  ranked.sort((a, b) => a.rank - b.rank || a.exercise.name.localeCompare(b.exercise.name));
+  return { results: ranked.slice(0, limit).map((r) => r.exercise), total: ranked.length };
+}

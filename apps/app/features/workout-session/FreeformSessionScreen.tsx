@@ -13,6 +13,7 @@ import {
 import {
   deriveNewPersonalRecords,
   filterByEquipmentSubset,
+  restBetweenSets,
   type ExerciseWithTags,
   type FitnessLevel,
   type Goal,
@@ -24,10 +25,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import ExerciseDemoPanel, { DemoModelCredit } from '../../components/ExerciseDemoPanel';
+import ExercisePicker from '../../components/ExercisePicker';
 import { getSupabaseClient } from '../../lib/supabaseClient';
 import NewPersonalRecordCard from '../progress/NewPersonalRecordCard';
 import { createOfflineQueue, generateLocalId, type OfflineQueueHandle } from './offlineQueue';
-import RestTimer from './RestTimer';
 import SetLogger, { type LoggedSetDisplay } from './SetLogger';
 import { buildSummaryForSession } from './buildSummaryForSession';
 import SessionSummary from './SessionSummary';
@@ -57,7 +58,7 @@ interface NewPrCardState {
  * FR-5.2/FR-5.4/UX-4/NFR-3/AC-8: a freeform workout session — no plan
  * attachment (spec.md Flow 2.3). The user adds exercises one at a time
  * and logs sets exactly as in the plan-attached flow (SetLogger,
- * RestTimer, the offline-sync queue), but there is no prescribed
+ * per-exercise rest countdown, the offline-sync queue), but there is no prescribed
  * structure to pre-fill, skip, or substitute against.
  */
 export default function FreeformSessionScreen({
@@ -84,6 +85,11 @@ export default function FreeformSessionScreen({
   const [newPrCards, setNewPrCards] = useState<NewPrCardState[]>([]);
   const [unitPreference, setUnitPreference] = useState<UnitPreference>('metric');
   const [profileGoal, setProfileGoal] = useState<{ goal: Goal; fitnessLevel: FitnessLevel } | null>(null);
+  // FR-5.4: each exercise's rest between sets, from the user's goal and the exercise's mechanic.
+  const restByExerciseId = useMemo(
+    () => new Map(exerciseLibrary.map((e) => [e.id, restBetweenSets(profileGoal?.goal, e.mechanic)] as const)),
+    [exerciseLibrary, profileGoal],
+  );
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const [completedSummary, setCompletedSummary] = useState<{ summary: SessionSummaryData; aiFacts: SessionAiFacts } | null>(null);
   const queueRef = useRef<OfflineQueueHandle | null>(null);
@@ -320,6 +326,7 @@ export default function FreeformSessionScreen({
           loggedSets={slot.loggedSets}
           onLogSet={(input) => handleLogSet(slot.exerciseId, input)}
           onRetrySet={handleRetrySet}
+          rest={restByExerciseId.get(slot.exerciseId) ?? restBetweenSets(profileGoal?.goal, null)}
           headerAccessory={
             <ExerciseDemoPanel
               exerciseName={slot.exerciseName}
@@ -329,8 +336,6 @@ export default function FreeformSessionScreen({
           }
         />
       ))}
-
-      <RestTimer />
 
       <Pressable
         testID="freeform-add-exercise-toggle"
@@ -343,17 +348,7 @@ export default function FreeformSessionScreen({
       </Pressable>
       {showAddExercise ? (
         <View testID="freeform-add-exercise-options">
-          {addableExercises.map((exercise) => (
-            <Pressable
-              key={exercise.id}
-              testID={`freeform-add-exercise-option-${exercise.id}`}
-              style={styles.optionRow}
-              onPress={() => handleAddExercise(exercise)}
-              accessibilityRole="button"
-            >
-              <Text style={styles.optionText}>{exercise.name}</Text>
-            </Pressable>
-          ))}
+          <ExercisePicker exercises={addableExercises} onSelect={handleAddExercise} testIDPrefix="freeform-add-exercise" autoFocus />
         </View>
       ) : null}
 
@@ -376,8 +371,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '600', marginBottom: 16 },
   error: { color: '#b00020', marginBottom: 12 },
   empty: { color: '#666', marginBottom: 16 },
-  optionRow: { paddingVertical: 8 },
-  optionText: { fontSize: 14 },
   button: {
     backgroundColor: '#111',
     borderRadius: 8,

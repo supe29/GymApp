@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { formatRest, type RestBetweenSets } from 'core';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 
 import NumberStepper from '../../components/NumberStepper';
 
@@ -26,6 +27,32 @@ export interface SetLoggerProps {
   previousSet?: PreviousSet;
   /** Shown under the exercise name and target, above the inputs (the session screen's movement demo). */
   headerAccessory?: ReactNode;
+  /** FR-5.4: this exercise's rest between sets; logging a set starts it counting down. */
+  rest?: RestBetweenSets;
+}
+
+/**
+ * FR-5.4: counts down to `endsAt` (ms since epoch) from the wall clock, so it
+ * stays right if the app is backgrounded; vibrates once when the rest is over.
+ */
+function useRestCountdown(endsAt: number | null): number | null {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (endsAt === null) return;
+    setNow(Date.now());
+    const interval = setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= endsAt) clearInterval(interval);
+    }, 250);
+    return () => clearInterval(interval);
+  }, [endsAt]);
+  const remaining = endsAt === null ? null : Math.max(0, (endsAt - now) / 1000);
+  const over = remaining === 0;
+  useEffect(() => {
+    if (over) Vibration.vibrate(400);
+  }, [over]);
+  return remaining;
 }
 
 export interface PreviousSet {
@@ -74,6 +101,7 @@ export default function SetLogger({
   target,
   previousSet,
   headerAccessory,
+  rest,
 }: SetLoggerProps) {
   // Pre-filled from the prescription (else last time's weight) so a
   // typical set is just "Log set"; values persist after logging, so
@@ -82,8 +110,17 @@ export default function SetLogger({
   const [reps, setReps] = useState<number | null>(target?.repsMin ?? null);
   const [rpe, setRpe] = useState<number | null>(null);
 
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+  const [showRestWhy, setShowRestWhy] = useState(false);
+  const restRemaining = useRestCountdown(restEndsAt);
+  const setsLogged = loggedSets.length;
+  const allTargetSetsDone = target ? setsLogged >= target.sets : false;
+
   function handleLogSet() {
     onLogSet({ weightKg, reps, rpe });
+    // No rest to count once the prescribed sets are all done.
+    const finished = target ? setsLogged + 1 >= target.sets : false;
+    setRestEndsAt(rest && !finished ? Date.now() + rest.seconds * 1000 : null);
   }
 
   return (
@@ -99,6 +136,27 @@ export default function SetLogger({
       {previousSet?.weightKg != null ? (
         <Text testID={`set-logger-${exerciseId}-previous`} style={styles.targetText}>
           Last time: {previousSet.weightKg} kg × {previousSet.reps ?? '-'}
+        </Text>
+      ) : null}
+      {rest ? (
+        <View style={styles.restInfoRow}>
+          <Text testID={`set-logger-${exerciseId}-rest`} style={styles.targetText}>
+            {`Rest ${formatRest(rest.seconds)} between sets`}
+          </Text>
+          <Pressable
+            testID={`set-logger-${exerciseId}-rest-why-toggle`}
+            onPress={() => setShowRestWhy((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={`Why rest ${formatRest(rest.seconds)} on ${exerciseName}?`}
+            accessibilityState={{ expanded: showRestWhy }}
+          >
+            <Text style={styles.whyLink}>Why?</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {rest && showRestWhy ? (
+        <Text testID={`set-logger-${exerciseId}-rest-why`} style={styles.whyText}>
+          {rest.reason}
         </Text>
       ) : null}
       {headerAccessory}
@@ -127,6 +185,21 @@ export default function SetLogger({
           ) : null}
         </View>
       ))}
+
+      {restRemaining !== null && !allTargetSetsDone ? (
+        restRemaining > 0 ? (
+          <View testID={`set-logger-${exerciseId}-rest-countdown`} style={styles.restBox} accessibilityLiveRegion="polite">
+            <Text style={styles.restLabel}>Rest</Text>
+            <Text testID={`set-logger-${exerciseId}-rest-remaining`} style={styles.restTime}>
+              {formatRest(restRemaining)}
+            </Text>
+          </View>
+        ) : (
+          <View testID={`set-logger-${exerciseId}-rest-over`} style={[styles.restBox, styles.restOverBox]} accessibilityLiveRegion="polite">
+            <Text style={styles.restOverText}>{`Rest over. Ready for set ${setsLogged + 1}.`}</Text>
+          </View>
+        )
+      ) : null}
 
       <View style={styles.stepperRow}>
         <Text style={styles.stepperLabel}>Weight (kg)</Text>
@@ -191,4 +264,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   logButtonText: { color: '#fff', fontWeight: '600' },
+  restInfoRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  whyLink: { fontSize: 12, color: '#555', textDecorationLine: 'underline' },
+  whyText: { fontSize: 12, color: '#666', marginBottom: 8 },
+  restBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#111',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 10,
+  },
+  restLabel: { color: '#ccc', fontSize: 14, fontWeight: '600' },
+  restTime: { color: '#fff', fontSize: 28, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  restOverBox: { backgroundColor: '#e3f1e4' },
+  restOverText: { color: '#2e7d32', fontSize: 15, fontWeight: '700' },
 });

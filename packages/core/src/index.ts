@@ -7,6 +7,7 @@ export * from './planning/rules/splitDayTemplates';
 export * from './planning/splitSelector';
 export * from './planning/rules/sessionComposition';
 export * from './planning/rules/prescriptionRules';
+export * from './planning/rules/restRules';
 export * from './planning/rules/difficultyGating';
 export * from './planning/planGenerator';
 export * from './planning/versioning';
