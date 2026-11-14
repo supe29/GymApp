@@ -18,7 +18,7 @@
 // an app restart during a drop, not just a brief in-memory gap.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logSet, type GymSupabaseClient, type SetLogInput } from 'api-client';
+import { deleteSetLog, logSet, type GymSupabaseClient, type SetLogInput } from 'api-client';
 import { AppState, type AppStateStatus } from 'react-native';
 
 const STORAGE_KEY = '@gym/offline-set-log-queue';
@@ -53,6 +53,13 @@ export interface OfflineQueueHandle {
   enqueue(input: SetLogInput): Promise<void>;
   retryNow(id: string): Promise<void>;
   discard(id: string): Promise<void>;
+  /**
+   * FR-5.1: deletes a set the user logged by mistake — drops any queued
+   * (unsynced) copy and deletes the server row. If a sync of this set is
+   * in flight, its upsert may land after the delete, so the queue deletes
+   * again once that attempt returns. Resolves with the server delete's error, if any.
+   */
+  remove(id: string): Promise<{ error: string | null }>;
   getAll(): Promise<QueuedSetLog[]>;
   /** Removes the AppState listener and cancels pending backoff timers — call on unmount. */
   teardown(): void;
@@ -97,6 +104,8 @@ export function createOfflineQueue(
   callbacks: OfflineQueueCallbacks = {},
 ): OfflineQueueHandle {
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  // Ids the user deleted; a sync attempt already in flight for one of these re-deletes on return.
+  const removedIds = new Set<string>();
 
   function clearScheduledRetry(id: string) {
     const timer = timers.get(id);
@@ -114,6 +123,12 @@ export function createOfflineQueue(
     await saveQueue(queue);
 
     const syncResult = await logSet(client, userId, { id: entry.id, ...entry.payload });
+
+    if (removedIds.has(entry.id)) {
+      // Deleted by the user while this upsert was in flight — undo it.
+      if (!syncResult.error) await deleteSetLog(client, userId, entry.id);
+      return;
+    }
 
     queue = await loadQueue();
     const current = queue.find((e) => e.id === entry.id);
@@ -190,6 +205,15 @@ export function createOfflineQueue(
       clearScheduledRetry(id);
       const queue = await loadQueue();
       await saveQueue(queue.filter((e) => e.id !== id));
+    },
+    async remove(id) {
+      removedIds.add(id);
+      clearScheduledRetry(id);
+      const queue = await loadQueue();
+      await saveQueue(queue.filter((e) => e.id !== id));
+      const result = await deleteSetLog(client, userId, id);
+      if (result.error) removedIds.delete(id);
+      return { error: result.error };
     },
     async getAll() {
       return loadQueue();

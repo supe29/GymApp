@@ -298,6 +298,29 @@ export default function SessionScreen({
     queueRef.current?.retryNow(id);
   }
 
+  // FR-5.1: removes a mistakenly logged set right away; if the server
+  // delete fails, the set comes back so the user can try again.
+  async function handleDeleteSet(slotId: string, id: string) {
+    const queue = queueRef.current;
+    const slot = slots.find((s) => s.id === slotId);
+    const removed = slot?.loggedSets.find((s) => s.id === id);
+    if (!queue || !removed) return;
+    setSlots((prev) =>
+      prev.map((s) => (s.id === slotId ? { ...s, loggedSets: s.loggedSets.filter((set) => set.id !== id) } : s)),
+    );
+    const { error: deleteError } = await queue.remove(id);
+    if (deleteError) {
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.id === slotId
+            ? { ...s, loggedSets: [...s.loggedSets, removed].sort((a, b) => a.setIndex - b.setIndex) }
+            : s,
+        ),
+      );
+      setError(`Couldn't delete that set. ${deleteError}`);
+    }
+  }
+
   function handleSkip(slotId: string) {
     setSlots((prev) => prev.map((s) => (s.id === slotId ? { ...s, skipped: !s.skipped } : s)));
   }
@@ -606,6 +629,7 @@ export default function SessionScreen({
               loggedSets={slot.loggedSets}
               onLogSet={(input) => handleLogSet(slot.id, input)}
               onRetrySet={handleRetrySet}
+              onDeleteSet={(id) => void handleDeleteSet(slot.id, id)}
               previousSet={slot.previousSet ?? undefined}
               rest={restByExerciseId.get(slot.exerciseId) ?? restBetweenSets(profileGoal?.goal, null)}
               headerAccessory={

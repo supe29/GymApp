@@ -191,6 +191,31 @@ export default function FreeformSessionScreen({
     queueRef.current?.retryNow(id);
   }
 
+  // FR-5.1: removes a mistakenly logged set right away; if the server
+  // delete fails, the set comes back so the user can try again.
+  async function handleDeleteSet(exerciseId: string, id: string) {
+    const queue = queueRef.current;
+    const slot = slots.find((s) => s.exerciseId === exerciseId);
+    const removed = slot?.loggedSets.find((s) => s.id === id);
+    if (!queue || !removed) return;
+    setSlots((prev) =>
+      prev.map((s) =>
+        s.exerciseId === exerciseId ? { ...s, loggedSets: s.loggedSets.filter((set) => set.id !== id) } : s,
+      ),
+    );
+    const { error: deleteError } = await queue.remove(id);
+    if (deleteError) {
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.exerciseId === exerciseId
+            ? { ...s, loggedSets: [...s.loggedSets, removed].sort((a, b) => a.setIndex - b.setIndex) }
+            : s,
+        ),
+      );
+      setError(`Couldn't delete that set. ${deleteError}`);
+    }
+  }
+
   async function handleCompleteSession() {
     if (!workoutSessionId) return;
     setCompleting(true);
@@ -326,6 +351,7 @@ export default function FreeformSessionScreen({
           loggedSets={slot.loggedSets}
           onLogSet={(input) => handleLogSet(slot.exerciseId, input)}
           onRetrySet={handleRetrySet}
+          onDeleteSet={(id) => void handleDeleteSet(slot.exerciseId, id)}
           rest={restByExerciseId.get(slot.exerciseId) ?? restBetweenSets(profileGoal?.goal, null)}
           headerAccessory={
             <ExerciseDemoPanel

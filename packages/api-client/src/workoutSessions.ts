@@ -129,6 +129,23 @@ export async function logSet(
   return { data: toPersistedSetLog(data), error: null };
 }
 
+/**
+ * FR-5.1: deletes one logged set (e.g. one logged by mistake), scoped to
+ * the owning user. Deleting a row that doesn't exist (a set that never
+ * synced) is a no-op success, so callers can always call it.
+ */
+export async function deleteSetLog(
+  client: GymSupabaseClient,
+  userId: string,
+  setLogId: string,
+): Promise<ApiResult<null>> {
+  const { error } = await client.from('set_logs').delete().eq('id', setLogId).eq('user_id', userId);
+  if (error) {
+    return { data: null, error: error.message };
+  }
+  return { data: null, error: null };
+}
+
 /** FR-5.5: marks a session complete. */
 export async function completeWorkoutSession(
   client: GymSupabaseClient,
